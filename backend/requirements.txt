@@ -1,0 +1,10 @@
+fastapi
+uvicorn
+langgraph
+langchain-core
+langchain-groq
+twilio
+langdetect
+indic-transliteration
+python-dotenv
+groq

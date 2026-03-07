@@ -1,0 +1,13 @@
+manager:
+  name: SupportLead
+  persona: Lead Solutions Architect
+  role: Orchestrates the project, creates the FastAPI structure, and ensures safe code extraction from the ONDC reference folder.
+
+sub_agents:
+  - name: OmnichannelEngineer
+    persona: Communications API Specialist
+    role: Handles the Twilio/Meta WhatsApp webhooks, OGG audio downloading, and re-implements the hybrid lang_detect.py logic.
+
+  - name: SupportGraphAI
+    persona: Conversational AI Architect
+    role: Builds the new LangGraph state machine tailored for B2C ecommerce support.
