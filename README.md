@@ -10,58 +10,60 @@ An enterprise-grade, voice-first WhatsApp AI Support Agent built specifically fo
 
 Indian D2C brands face a unique customer support challenge: the dominance of WhatsApp and the prevalence of voice notes in regional languages or "Hinglish." Traditional chatbots fail entirely when confronted with a 10-second voice note asking "Mera refund kahan hai?" 
 
-**Our Vision:** To provide Tier-2/3 customer support teams with an autonomous AI agent that seamlessly transcribes blisteringly fast voice notes, classifies complex mixed-language intents, and integrates deeply with existing e-commerce backends (like ONDC and Shopify) to resolve tickets instantly—all without human intervention unless absolutely necessary.
+**Our Vision:** To provide Tier-2/3 customer support teams with an autonomous AI agent that seamlessly transcribes voice notes, classifies complex mixed-language intents, and integrates deeply with existing e-commerce backends (like ONDC and Shopify) to resolve tickets instantly.
 
 ---
 
-## 🎯 Use Cases
+## 🎯 Supported Intents (10)
 
-1. **Order Tracking via Voice:**
-   - *Customer:* (Sends Voice Note) "Bhaiya mera joote ka order kab aayega?" (Brother, when will my shoe order arrive?)
-   - *Agent:* Instantly transcribes, queries the e-commerce database, and replies: "📦 आपका ऑडर ORD-11223 अभी 'Out for Delivery' है। इसके आज रात 8 बजे तक पहुंचने की उम्मीद है।"
-2. **Refund Initiation & Checking:**
-   - *Customer:* "I want to cancel and get my paise wapas."
-   - *Agent:* Checks eligibility against the database and automatically triggers the refund API.
-3. **Product FAQs:**
-   - Automates responses for return policies, shipping times, and general catalog queries.
-4. **Smart Human Handoff (Zendesk/Freshdesk Stub):**
-   - If a customer is frustrated or asks for a human, the AI creates an enterprise support ticket and hands off the conversation context smoothly.
+| Intent | Description |
+|--------|-------------|
+| `ORDER_STATUS` | Track order delivery status |
+| `REFUND_REQUEST` | Initiate a refund |
+| `ORDER_CANCEL` | Cancel an active order |
+| `EXCHANGE_REQUEST` | Exchange/replace a product |
+| `PAYMENT_ISSUE` | Payment failures, double charges |
+| `DELIVERY_COMPLAINT` | Late delivery, damaged goods |
+| `PRODUCT_FAQ` | Return policy, shipping time, contact info |
+| `HUMAN_HANDOFF` | Transfer to human agent with ticket |
+| `GREETING` | Hi, Hello, Namaste |
+| `UNKNOWN` | Fallback with helpful suggestions |
 
 ---
 
-## 🏗️ Product Architecture
+## 🏗️ Architecture
 
-The system is designed around a decoupled, API-first architecture:
-
-### 1. The Twilio Webhook Layer
-- Receives incoming WhatsApp payloads.
-- **Media Interception:** Detects `OGG` audio payloads and securely downloads them using Twilio Auth.
-
-### 2. The Audio Transcription Layer (Groq)
-- Pushes the audio to **Groq's `whisper-large-v3`** model.
-- Why Groq? It provides LPU-accelerated, near-instantaneous transcription, ensuring the WhatsApp user doesn't experience "chatbot lag."
-
-### 3. The LangGraph State Machine
-- **Node 1 (Language Detection):** A hybrid heuristic engine checking for Hinglish/Indic triggers or falling back to `langdetect`.
-- **Node 2 (Intent Classifier):** Calls `llama3-70b-8192` with strict structured outputs to classify the prompt into one of five paths: `ORDER_STATUS`, `REFUND_REQUEST`, `PRODUCT_FAQ`, `HUMAN_HANDOFF`, or `UNKNOWN`. Also extracts entities like `order_id`.
-- **Action Nodes:** Specific Python execution paths that interact with the Mock E-commerce Database or trigger the Zendesk Ticket Stub.
-
-### 4. Localization Engine
-- Replies are dynamically generated using `reply_templates.py`, which supports multi-language contextual responses (currently optimized for English and Hindi/Hinglish).
+```
+WhatsApp → Twilio → webhook.py (rate limit + signature validation)
+                        │
+                        ├── Audio? → Groq Whisper (with retries) → Text
+                        │
+                        └── support_graph.py (LangGraph)
+                              │
+                              ├── detect_language (hybrid 3-step)
+                              ├── load_context (conversation memory)
+                              ├── classify_intent (Groq LLM + sanitization)
+                              └── action_node → ecommerce_adapter.py → database.py (SQLite)
+                                                                        ├── Orders
+                                                                        ├── Conversations
+                                                                        └── Tickets
+```
 
 ---
 
 ## 💻 Tech Stack
 
 ### Backend (`/backend`)
-- **Framework Development:** FastAPI & Uvicorn
-- **AI / LLM Orchestration:** LangGraph & LangChain Core
-- **Inference & Transcription:** Groq (`llama3-70b-8192` & `whisper-large-v3`)
-- **Communication:** Twilio Messaging API
-- **Language Utilities:** `langdetect`, `indic-transliteration`
+- **Framework:** FastAPI + Uvicorn (with CORS, rate limiting)
+- **AI Orchestration:** LangGraph + LangChain Core
+- **Inference:** Groq (`llama3-70b-8192` + `whisper-large-v3`)
+- **Communication:** Twilio Messaging API (signature validation)
+- **Database:** SQLite (orders, conversations, tickets)
+- **Config:** Pydantic BaseSettings
+- **Logging:** Structured logging with correlation IDs
 
 ### Frontend (`/frontend`)
-- **Framework:** Next.js 14 (App Router)
+- **Framework:** Next.js 16 (App Router, standalone output)
 - **Styling:** Tailwind CSS
 - **Animations:** Framer Motion
 - **Icons:** Lucide React
@@ -73,55 +75,68 @@ The system is designed around a decoupled, API-first architecture:
 ```text
 d2c-voice-agent/
 │
-├── backend/                  # The AI Execution Engine
-│   ├── webhook.py            # FastAPI entry point & Twilio handler
-│   ├── support_graph.py      # LangGraph state machine & LLM Logic
-│   ├── mock_ecommerce.py     # Stub database for testing orders
-│   ├── lang_detect.py        # Hybrid custom language classifier
-│   ├── reply_templates.py    # Localized dialogue templates
-│   └── requirements.txt      # Python dependencies
+├── backend/                     # AI Execution Engine
+│   ├── webhook.py               # FastAPI + Twilio webhook + API v1 endpoints
+│   ├── support_graph.py         # LangGraph state machine (10 intents)
+│   ├── database.py              # SQLite persistence layer
+│   ├── ecommerce_adapter.py     # Abstract adapter (DB/ONDC/Shopify)
+│   ├── config.py                # Pydantic BaseSettings singleton
+│   ├── logger.py                # Structured logging + correlation IDs
+│   ├── lang_detect.py           # Hybrid language classifier
+│   ├── reply_templates.py       # Bilingual templates (EN + HI)
+│   ├── requirements.txt         # Pinned Python dependencies
+│   ├── Dockerfile               # Production container
+│   └── .env.example             # Environment variables template
 │
-└── frontend/                 # B2B SaaS Marketing Landing Page
-    ├── src/app/              # Next.js Pages & Layout
-    ├── src/components/       # React UI Components (Hero, InteractiveChat)
-    ├── tailwind.config.ts    # Styling Configuration
-    └── package.json          # Node dependencies
+├── frontend/                    # B2B SaaS Marketing Landing Page
+│   ├── src/app/                 # Next.js Pages & Layout
+│   ├── src/components/          # 8 React UI Components
+│   ├── Dockerfile               # Production container
+│   └── package.json             # Node dependencies
+│
+├── docker-compose.yml           # Full stack orchestration
+└── .github/workflows/ci.yml    # CI/CD pipeline
 ```
 
 ---
 
 ## 🚀 Getting Started
 
-### 1. Setting up the Backend
-Navigate to the `backend` directory and install dependencies:
+### 1. Backend Setup
 ```bash
 cd backend
-python -m venv venv
-source venv/bin/activate
+python -m venv venv && source venv/bin/activate
 pip install -r requirements.txt
-```
-
-Create a `.env` file in the `backend/` directory:
-```env
-TWILIO_ACCOUNT_SID=your_twilio_sid
-TWILIO_AUTH_TOKEN=your_twilio_token
-GROQ_API_KEY=your_groq_api_key
-```
-
-Run the server:
-```bash
+cp .env.example .env   # Fill in your keys
 uvicorn webhook:app --reload --port 8000
 ```
-*Use `ngrok http 8000` to expose this webhook to Twilio.*
+The SQLite database auto-creates on first start.
 
-### 2. Setting up the Frontend
-Navigate to the `frontend` directory:
+### 2. Frontend Setup
 ```bash
 cd frontend
 npm install
 npm run dev
 ```
-Visit `http://localhost:3000` to view the animated B2B landing page.
+Visit `http://localhost:3000`.
+
+### 3. Docker (Full Stack)
+```bash
+cp backend/.env.example backend/.env  # Fill in your keys
+docker compose up --build
+```
+
+---
+
+## 📡 API Endpoints
+
+| Method | Endpoint | Description |
+|--------|----------|-------------|
+| `GET` | `/health` | Health check |
+| `POST` | `/api/v1/whatsapp-webhook` | Twilio webhook (rate limited) |
+| `GET` | `/api/v1/conversations/{phone}` | Conversation history |
+| `GET` | `/api/v1/tickets` | Open support tickets |
+| `GET` | `/api/v1/stats` | Agent statistics |
 
 ---
 

@@ -13,7 +13,19 @@ TEMPLATES = {
         "REFUND_INITIATED": "💸 Refund for order {order_id} has been initiated successfully.",
         "REFUND_EXISTS": "ℹ️ Your refund is already in status: {status}.",
         "REFUND_NOT_POSSIBLE": "⚠️ Refunds are not applicable because your order status is '{status}'.",
+        "ORDER_CANCELLED": "✅ Your order {order_id} has been cancelled and a refund has been initiated.",
+        "ORDER_CANCEL_NOT_POSSIBLE": "⚠️ We cannot cancel this order because it is currently '{status}'.",
+        "EXCHANGE_INITIATED": "🔄 Exchange request for order {order_id} has been noted. Our team will reach out shortly.",
+        "PAYMENT_ISSUE_ACK": "💳 We've logged your payment issue for order {order_id}. Our finance team will investigate — you'll receive an update within 24 hours.",
+        "DELIVERY_COMPLAINT_ACK": "📋 We're sorry to hear about the issue with your delivery. Ticket {ticket_id} has been created and our team will resolve this ASAP.",
         "HUMAN_HANDOFF": "👨‍💻 I am transferring you to a human agent. They will assist you shortly.",
+        "GREETING": (
+            "👋 Hey there! Welcome to our support. I can help you with:\n"
+            "• Order tracking\n"
+            "• Refunds & returns\n"
+            "• Product info\n"
+            "How can I help you today?"
+        ),
         "UNKNOWN": (
             "🤔 I didn't quite catch that. You can ask me things like:\n"
             "• \"Where is my order?\"\n"
@@ -31,7 +43,19 @@ TEMPLATES = {
         "REFUND_INITIATED": "💸 ऑडर {order_id} के लिए रिफंड सफलतापूर्वक शुरू कर दिया गया है।",
         "REFUND_EXISTS": "ℹ️ आपके रिफंड का स्टेटस अभी यह है: {status}।",
         "REFUND_NOT_POSSIBLE": "⚠️ रिफंड संभव नहीं है क्योंकि आपका ऑडर स्टेटस '{status}' है।",
+        "ORDER_CANCELLED": "✅ आपका ऑडर {order_id} कैंसल कर दिया गया है और रिफंड शुरू कर दिया गया है।",
+        "ORDER_CANCEL_NOT_POSSIBLE": "⚠️ हम इस ऑडर को कैंसल नहीं कर सकते क्योंकि इसका स्टेटस '{status}' है।",
+        "EXCHANGE_INITIATED": "🔄 ऑडर {order_id} के लिए एक्सचेंज रिक्वेस्ट नोट कर ली गई है। हमारी टीम जल्द ही संपर्क करेगी।",
+        "PAYMENT_ISSUE_ACK": "💳 आपकी पेमेंट समस्या ऑडर {order_id} के लिए दर्ज कर ली गई है। हमारी फाइनेंस टीम 24 घंटे में अपडेट देगी।",
+        "DELIVERY_COMPLAINT_ACK": "📋 आपकी डिलीवरी में हुई दिक्कत के लिए माफी। टिकट {ticket_id} बनाया गया है, हमारी टीम जल्द से जल्द इसे सुलझाएगी।",
         "HUMAN_HANDOFF": "👨‍💻 मैं आपको एक ह्यूमन एजेंट से कनेक्ट कर रहा हूं। वे जल्द ही आपकी मदद करेंगे।",
+        "GREETING": (
+            "👋 नमस्ते! हमारे सपोर्ट में आपका स्वागत है। मैं इनमें मदद कर सकता हूं:\n"
+            "• ऑर्डर ट्रैकिंग\n"
+            "• रिफंड और रिटर्न\n"
+            "• प्रोडक्ट जानकारी\n"
+            "मैं आपकी कैसे मदद कर सकता हूं?"
+        ),
         "UNKNOWN": (
             "🤔 माफ करें, मैं समझ नहीं पाया। आप मुझसे ऐसे सवाल पूछ सकते हैं:\n"
             "• \"Mera order kahan hai?\"\n"
