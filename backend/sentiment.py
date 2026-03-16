@@ -82,7 +82,7 @@ def analyze_sentiment(message: str) -> Sentiment:
 
     # Check critical first
     if _CRITICAL_RE.search(text):
-        log.info(f"Sentiment: CRITICAL detected")
+        log.info("Sentiment: CRITICAL detected")
         return Sentiment.CRITICAL
 
     positive_matches = len(_POSITIVE_RE.findall(text))

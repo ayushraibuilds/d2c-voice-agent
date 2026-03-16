@@ -21,7 +21,7 @@ from pydantic import BaseModel, Field
 from config import get_settings
 from logger import get_logger, set_request_id
 from ecommerce_adapter import get_adapter
-from sentiment import analyze_sentiment, should_auto_escalate, Sentiment
+from sentiment import analyze_sentiment, should_auto_escalate
 from notifications import is_csat_response, process_csat_response
 import database as db
 import lang_detect
@@ -297,7 +297,7 @@ def handle_exchange_request(state: GraphState):
         reply = format_reply(lang, "ORDER_STATUS_NOT_FOUND")
     else:
         # Create a ticket for the exchange
-        ticket_id = db.create_ticket(phone, state["message"], "EXCHANGE_REQUEST")
+        db.create_ticket(phone, state["message"], "EXCHANGE_REQUEST")
         reply = format_reply(lang, "EXCHANGE_INITIATED", order_id=order["order_id"])
 
     return {"reply": reply}

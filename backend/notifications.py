@@ -10,7 +10,6 @@ Handles outbound messages for:
 Uses Twilio's WhatsApp Business API for delivery.
 """
 
-from datetime import datetime
 from logger import get_logger
 import database as db
 

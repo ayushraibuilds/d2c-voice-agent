@@ -12,9 +12,7 @@ for PostgreSQL/Supabase in production.
 """
 
 import sqlite3
-import os
 import json
-from datetime import datetime
 from typing import Optional
 from contextlib import contextmanager
 

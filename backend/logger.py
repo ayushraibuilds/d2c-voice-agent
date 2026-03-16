@@ -9,8 +9,6 @@ import logging
 import sys
 import uuid
 from contextvars import ContextVar
-from functools import wraps
-from typing import Any
 
 # Context var for request correlation
 _request_id: ContextVar[str] = ContextVar("request_id", default="no-request")

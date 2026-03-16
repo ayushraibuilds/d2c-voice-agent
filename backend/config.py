@@ -5,7 +5,6 @@ Uses Pydantic BaseSettings for validated, type-safe config loaded from .env.
 All secrets are loaded once at startup and accessed via the singleton `settings`.
 """
 
-import os
 from functools import lru_cache
 from pydantic_settings import BaseSettings
 from pydantic import Field

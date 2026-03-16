@@ -8,7 +8,6 @@ Detection strategy (fastest match wins):
 """
 import re
 from dataclasses import dataclass
-from typing import Optional
 
 # --- Hinglish keywords (transliterated Hindi commonly used in WhatsApp Support) ---
 HINDI_KEYWORDS = {
