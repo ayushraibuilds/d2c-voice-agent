@@ -314,7 +314,7 @@ def handle_payment_issue(state: GraphState):
     if not order:
         reply = format_reply(lang, "ORDER_STATUS_NOT_FOUND")
     else:
-        ticket_id = db.create_ticket(phone, state["message"], "PAYMENT_ISSUE")
+        db.create_ticket(phone, state["message"], "PAYMENT_ISSUE")
         reply = format_reply(lang, "PAYMENT_ISSUE_ACK", order_id=order["order_id"])
 
     return {"reply": reply}
