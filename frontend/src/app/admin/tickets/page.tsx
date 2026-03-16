@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { TicketCheck, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { CheckCircle, AlertCircle, Clock } from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -19,7 +19,20 @@ export default function TicketsPage() {
   const [loading, setLoading] = useState(true);
   const [closing, setClosing] = useState<string | null>(null);
 
-  const fetchTickets = () => {
+  useEffect(() => {
+    const fetchTickets = () => {
+      setLoading(true);
+      fetch(`${API_BASE}/api/v1/tickets`)
+        .then((r) => r.json())
+        .then((d) => setTickets(d.tickets || []))
+        .catch(console.error)
+        .finally(() => setLoading(false));
+    };
+
+    fetchTickets();
+  }, []);
+
+  const handleRefresh = () => {
     setLoading(true);
     fetch(`${API_BASE}/api/v1/tickets`)
       .then((r) => r.json())
@@ -27,10 +40,6 @@ export default function TicketsPage() {
       .catch(console.error)
       .finally(() => setLoading(false));
   };
-
-  useEffect(() => {
-    fetchTickets();
-  }, []);
 
   const closeTicket = (ticketId: string) => {
     setClosing(ticketId);
@@ -61,7 +70,7 @@ export default function TicketsPage() {
           </p>
         </div>
         <button
-          onClick={fetchTickets}
+          onClick={handleRefresh}
           className="text-sm text-gray-400 hover:text-white px-3 py-1.5 rounded-lg bg-white/5 border border-white/10 hover:bg-white/10 transition-all"
         >
           Refresh

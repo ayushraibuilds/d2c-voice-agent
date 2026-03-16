@@ -1,7 +1,7 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { ArrowRight, Bot, Mic } from "lucide-react";
+import { ArrowRight } from "lucide-react";
 
 export function Hero() {
     return (

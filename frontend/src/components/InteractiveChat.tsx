@@ -102,9 +102,9 @@ export function InteractiveChat() {
                                 <div className="bg-white px-3 py-2 rounded-lg rounded-tl-none max-w-[85%] shadow-sm">
                                     <p className="text-[#303030] text-[14px] leading-snug">
                                         <span className="text-gray-500 italic text-xs block mb-1">
-                                            🗣️ "Mera order kahan hai?"
+                                            🗣️ &quot;Mera order kahan hai?&quot;
                                         </span>
-                                        📦 आपका ऑडर <strong>ORD-12345</strong> अभी 'Out for Delivery' है। इसके आज रात 8 बजे तक पहुंचने की उम्मीद है।
+                                        📦 आपका ऑडर <strong>ORD-12345</strong> अभी &apos;Out for Delivery&apos; है। इसके आज रात 8 बजे तक पहुंचने की उम्मीद है।
                                     </p>
 
                                     <div className="mt-2 p-2 bg-gray-50 rounded border border-gray-100 flex items-center gap-2 cursor-pointer hover:bg-gray-100 transition-colors">
