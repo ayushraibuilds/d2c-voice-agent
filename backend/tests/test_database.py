@@ -3,7 +3,6 @@ Unit tests for database.py (using an in-memory SQLite DB).
 """
 import sys
 import os
-import sqlite3
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))

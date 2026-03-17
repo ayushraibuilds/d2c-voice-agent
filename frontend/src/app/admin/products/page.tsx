@@ -51,7 +51,11 @@ export default function ProductsPage() {
   };
 
   useEffect(() => {
-    fetchProducts();
+    fetch(`${API_BASE}/api/v1/products?q=&limit=50`)
+      .then((r) => r.json())
+      .then((d) => setProducts(d.products || []))
+      .catch(console.error)
+      .finally(() => setLoading(false));
   }, []);
 
   const handleSearch = (e: React.FormEvent) => {
