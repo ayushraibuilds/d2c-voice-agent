@@ -304,7 +304,7 @@ def get_conversation_history(phone: str, limit: int = 10) -> list[dict]:
     """Get recent conversation history for a phone number."""
     with get_db() as conn:
         rows = conn.execute(
-            "SELECT role, message, intent, detected_lang, created_at FROM conversations WHERE phone = ? ORDER BY created_at DESC LIMIT ?",
+            "SELECT role, message, intent, detected_lang, created_at FROM conversations WHERE phone = ? ORDER BY id DESC LIMIT ?",
             (phone, limit),
         ).fetchall()
         # Return in chronological order
