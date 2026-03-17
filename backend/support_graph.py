@@ -86,6 +86,7 @@ class GraphState(TypedDict):
     brand_name: str
     brand_custom_prompt: str
     brand_webhook_url: str
+    image_url: str | None
     reply: str
 
 
@@ -97,6 +98,7 @@ VALID_INTENTS = [
     "PAYMENT_ISSUE",
     "DELIVERY_COMPLAINT",
     "PRODUCT_FAQ",
+    "PRODUCT_SEARCH",
     "HUMAN_HANDOFF",
     "GREETING",
 ]
@@ -107,7 +109,7 @@ VALID_INTENTS = [
 # ──────────────────────────────────────────────
 class IntentClassification(BaseModel):
     intent: str = Field(
-        description="One of: ORDER_STATUS, REFUND_REQUEST, ORDER_CANCEL, EXCHANGE_REQUEST, PAYMENT_ISSUE, DELIVERY_COMPLAINT, PRODUCT_FAQ, HUMAN_HANDOFF, GREETING, UNKNOWN"
+        description="One of: ORDER_STATUS, REFUND_REQUEST, ORDER_CANCEL, EXCHANGE_REQUEST, PAYMENT_ISSUE, DELIVERY_COMPLAINT, PRODUCT_FAQ, PRODUCT_SEARCH, HUMAN_HANDOFF, GREETING, UNKNOWN"
     )
     order_id: str = Field(
         description="The order ID if mentioned (e.g. ORD-12345), else empty string.",
@@ -172,7 +174,8 @@ Rules:
 - Exchange, swap, replace product → EXCHANGE_REQUEST
 - Payment failed, double charge, payment issue → PAYMENT_ISSUE
 - Delivery complaint, damaged product, late delivery → DELIVERY_COMPLAINT
-- Return policy, shipping time, contact info, product questions → PRODUCT_FAQ
+- Asking for recommended products, searching catalog, looking for items to buy → PRODUCT_SEARCH
+- Return policy, shipping time, contact info, general questions → PRODUCT_FAQ
   - Also set faq_topic: return_policy, shipping_time, contact_support, or general
 - Speak to human/agent/manager → HUMAN_HANDOFF
 - Otherwise → UNKNOWN
@@ -216,6 +219,37 @@ def sentiment_node(state: GraphState):
         return {"sentiment": current_sentiment.value, "intent": "HUMAN_HANDOFF"}
 
     return {"sentiment": current_sentiment.value}
+
+
+def vision_processing_node(state: GraphState):
+    """If an image is provided, use the Vision model to analyze it."""
+    if not state.get("image_url"):
+        return {}
+
+    log.info(f"Processing image with vision model: {state['image_url']}")
+    try:
+        from langchain_core.messages import HumanMessage
+        vision_llm = ChatGroq(
+            api_key=settings.groq_api_key,
+            model=settings.vision_model,
+            temperature=0.0,
+        )
+        msg = vision_llm.invoke([
+            HumanMessage(content=[
+                {"type": "text", "text": "Describe this image. Does it look damaged or defective? Be concise."},
+                {"type": "image_url", "image_url": {"url": state["image_url"]}},
+            ])
+        ])
+        analysis = msg.content
+        log.info(f"Vision analysis: {analysis}")
+        
+        # Override intent if image appears damaged
+        if "damage" in analysis.lower() or "defect" in analysis.lower() or "broken" in analysis.lower():
+            return {"intent": "DELIVERY_COMPLAINT", "message": f"{state['message']} [Images Provided: {analysis}]"}
+        return {"message": f"{state['message']} [Image Description: {analysis}]"}
+    except Exception as e:
+        log.error(f"Vision processing error: {e}")
+        return {}
 
 
 def route_intent(state: GraphState) -> str:
@@ -323,10 +357,25 @@ def handle_payment_issue(state: GraphState):
 def handle_delivery_complaint(state: GraphState):
     lang = state["detected_lang"]
     phone = state["sender_phone"]
+    image_url = state.get("image_url")
 
-    ticket_id = db.create_ticket(phone, state["message"], "DELIVERY_COMPLAINT")
+    ticket_id = db.create_ticket(phone, state["message"], "DELIVERY_COMPLAINT", image_url=image_url)
     reply = format_reply(lang, "DELIVERY_COMPLAINT_ACK", ticket_id=ticket_id)
 
+    return {"reply": reply}
+
+
+def handle_product_search(state: GraphState):
+    """Search the product catalog based on user query."""
+    lang = state["detected_lang"]
+    query_text = state["message"].replace("do you have", "").replace("show me", "").strip()
+    
+    products = db.search_products(query_text, limit=3)
+    if not products:
+        reply = format_reply(lang, "PRODUCT_SEARCH_EMPTY")
+    else:
+        results = [f"📦 *{p['name']}*\n💰 ₹{p['price']}\nℹ️ {p['description']}" for p in products]
+        reply = format_reply(lang, "PRODUCT_SEARCH_RESULTS", results="\n\n".join(results))
     return {"reply": reply}
 
 
@@ -390,6 +439,7 @@ builder = StateGraph(GraphState)
 # Nodes
 builder.add_node("detect_language", detect_language_node)
 builder.add_node("load_context", load_context_node)
+builder.add_node("vision_processing", vision_processing_node)
 builder.add_node("classify", classify_intent_node)
 builder.add_node("sentiment", sentiment_node)
 builder.add_node("ORDER_STATUS", handle_order_status)
@@ -399,14 +449,16 @@ builder.add_node("EXCHANGE_REQUEST", handle_exchange_request)
 builder.add_node("PAYMENT_ISSUE", handle_payment_issue)
 builder.add_node("DELIVERY_COMPLAINT", handle_delivery_complaint)
 builder.add_node("PRODUCT_FAQ", handle_faq)
+builder.add_node("PRODUCT_SEARCH", handle_product_search)
 builder.add_node("HUMAN_HANDOFF", handle_handoff)
 builder.add_node("GREETING", handle_greeting)
 builder.add_node("UNKNOWN", handle_unknown)
 
-# Edges: detect_lang → load_context → classify → sentiment → route
+# Edges: detect_lang → load_context → vision_processing → classify → sentiment → route
 builder.set_entry_point("detect_language")
 builder.add_edge("detect_language", "load_context")
-builder.add_edge("load_context", "classify")
+builder.add_edge("load_context", "vision_processing")
+builder.add_edge("vision_processing", "classify")
 builder.add_edge("classify", "sentiment")
 
 builder.add_conditional_edges(
@@ -420,6 +472,7 @@ builder.add_conditional_edges(
         "PAYMENT_ISSUE": "PAYMENT_ISSUE",
         "DELIVERY_COMPLAINT": "DELIVERY_COMPLAINT",
         "PRODUCT_FAQ": "PRODUCT_FAQ",
+        "PRODUCT_SEARCH": "PRODUCT_SEARCH",
         "HUMAN_HANDOFF": "HUMAN_HANDOFF",
         "GREETING": "GREETING",
         "UNKNOWN": "UNKNOWN",
@@ -428,7 +481,7 @@ builder.add_conditional_edges(
 
 for intent in [
     "ORDER_STATUS", "REFUND_REQUEST", "ORDER_CANCEL", "EXCHANGE_REQUEST",
-    "PAYMENT_ISSUE", "DELIVERY_COMPLAINT", "PRODUCT_FAQ", "HUMAN_HANDOFF",
+    "PAYMENT_ISSUE", "DELIVERY_COMPLAINT", "PRODUCT_FAQ", "PRODUCT_SEARCH", "HUMAN_HANDOFF",
     "GREETING", "UNKNOWN",
 ]:
     builder.add_edge(intent, END)
@@ -437,7 +490,7 @@ for intent in [
 graph = builder.compile()
 
 
-def process_message(sender_phone: str, message: str, brand_config: dict | None = None) -> str:
+def process_message(sender_phone: str, message: str, brand_config: dict | None = None, image_url: str | None = None) -> str:
     """Entry point to process a message through the LangGraph pipeline."""
     request_id = set_request_id()
     log.info(f"Processing message from {sender_phone} (request_id={request_id})")
@@ -462,6 +515,7 @@ def process_message(sender_phone: str, message: str, brand_config: dict | None =
         "brand_name": brand_config.get("name", "D2C Brand"),
         "brand_custom_prompt": brand_config.get("custom_prompt", ""),
         "brand_webhook_url": brand_config.get("webhook_url", ""),
+        "image_url": image_url,
         "reply": "",
     }
 

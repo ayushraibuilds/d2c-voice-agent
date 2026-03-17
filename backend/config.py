@@ -24,6 +24,13 @@ class Settings(BaseSettings):
     llm_model: str = Field(default="llama3-70b-8192", description="Groq LLM model name")
     llm_temperature: float = Field(default=0.0, description="LLM temperature")
     whisper_model: str = Field(default="whisper-large-v3", description="Groq Whisper model")
+    vision_model: str = Field(default="llama-3.2-11b-vision-preview", description="Groq Vision LLM model name")
+
+    # --- Observability & Tracking ---
+    sentry_dsn: str | None = Field(default=None, description="Sentry DSN for error tracking")
+    langchain_tracing_v2: str | None = Field(default=None, description="Enable LangSmith tracing (true/false)")
+    langchain_project: str | None = Field(default=None, description="LangSmith project name")
+    langchain_api_key: str | None = Field(default=None, description="LangSmith API Key")
 
     # --- Security ---
     validate_twilio_signature: bool = Field(

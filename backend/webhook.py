@@ -18,8 +18,17 @@ from logger import get_logger, set_request_id
 from support_graph import process_message
 import database as db
 import webhook_dispatcher
+import sentry_sdk
 
 settings = get_settings()
+
+if settings.sentry_dsn:
+    sentry_sdk.init(
+        dsn=settings.sentry_dsn,
+        traces_sample_rate=1.0,
+        profiles_sample_rate=1.0,
+    )
+
 log = get_logger()
 
 # ──────────────────────────────────────
@@ -158,23 +167,28 @@ def handle_message_task(
     log.info(f"Handling message from {sender_phone} (rid={request_id})")
 
     message_text = text.strip() if text else ""
+    image_url = None
 
-    if num_media > 0 and media_type and "audio" in media_type:
-        log.info("Audio message received. Transcribing...")
-        message_text = transcribe_audio_groq(media_url)
-        if message_text:
-            log.info(f"Transcription: {message_text[:80]}...")
-        if not message_text:
-            from reply_templates import format_reply
-            send_whatsapp_message(sender_phone, twilio_phone, format_reply("en", "VOICE_ERROR"))
-            return
+    if num_media > 0 and media_type:
+        if "audio" in media_type:
+            log.info("Audio message received. Transcribing...")
+            message_text = transcribe_audio_groq(media_url)
+            if message_text:
+                log.info(f"Transcription: {message_text[:80]}...")
+            if not message_text:
+                from reply_templates import format_reply
+                send_whatsapp_message(sender_phone, twilio_phone, format_reply("en", "VOICE_ERROR"))
+                return
+        elif media_type.startswith("image/"):
+            log.info(f"Image message received: {media_url}")
+            image_url = media_url
 
     # Look up brand configuration mapping
     brand_config = db.get_brand_by_phone(twilio_phone)
     if not brand_config:
         log.warning(f"No brand configured for number {twilio_phone}. Using defaults.")
 
-    reply_text = process_message(sender_phone, message_text, brand_config)
+    reply_text = process_message(sender_phone, message_text, brand_config, image_url)
     send_whatsapp_message(sender_phone, twilio_phone, reply_text)
 
 

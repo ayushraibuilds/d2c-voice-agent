@@ -30,8 +30,11 @@ TEMPLATES = {
             "🤔 I didn't quite catch that. You can ask me things like:\n"
             "• \"Where is my order?\"\n"
             "• \"I want to cancel my order and get a refund\"\n"
-            "• \"Can I talk to a human?\""
+            "• \"Can I talk to a human?\"\n"
+            "• \"Show me your smartwatches\""
         ),
+        "PRODUCT_SEARCH_EMPTY": "🔍 I couldn't find any products matching your search. Try adjusting your query!",
+        "PRODUCT_SEARCH_RESULTS": "🛒 Here's what I found for you:\n\n{results}\n\nReply to me with what you'd like to order!",
         "ERROR": "⚠️ Our support system is currently experiencing issues. Please try again later.",
         "VOICE_ERROR": "⚠️ We couldn't transcribe your voice note clearly. Please type your message or try again.",
         "FAQ": "ℹ️ {answer}",
@@ -60,8 +63,11 @@ TEMPLATES = {
             "🤔 माफ करें, मैं समझ नहीं पाया। आप मुझसे ऐसे सवाल पूछ सकते हैं:\n"
             "• \"Mera order kahan hai?\"\n"
             "• \"Mujhe refund chahiye\"\n"
-            "• \"Customer care se baat karni hai\""
+            "• \"Customer care se baat karni hai\"\n"
+            "• \"Koyi naye products dikhao\""
         ),
+        "PRODUCT_SEARCH_EMPTY": "🔍 मुझे आपकी खोज से मेल खाता कोई उत्पाद नहीं मिला। कृपया कुछ और खोजें।",
+        "PRODUCT_SEARCH_RESULTS": "🛒 यहाँ आपके लिए कुछ उत्पाद हैं:\n\n{results}\n\nआप जो ऑर्डर करना चाहते हैं, मुझे बताएं!",
         "ERROR": "⚠️ हमारे सपोर्ट सिस्टम में अभी कुछ दिक्कत है। कृपया थोड़ी देर बाद कोशिश करें।",
         "VOICE_ERROR": "⚠️ हम आपका वॉइस नोट साफ नहीं सुन पाए। कृपया अपना मैसेज टाइप करें।",
         "FAQ": "ℹ️ {answer}",

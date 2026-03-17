@@ -54,6 +54,16 @@ def init_db():
                 created_at TEXT DEFAULT (datetime('now'))
             );
 
+            CREATE TABLE IF NOT EXISTS products (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name TEXT NOT NULL,
+                description TEXT DEFAULT '',
+                price REAL NOT NULL,
+                category TEXT DEFAULT '',
+                stock INTEGER DEFAULT 0,
+                created_at TEXT DEFAULT (datetime('now'))
+            );
+
             CREATE TABLE IF NOT EXISTS customers (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 phone TEXT UNIQUE NOT NULL,
@@ -90,6 +100,7 @@ def init_db():
                 phone TEXT NOT NULL,
                 message TEXT NOT NULL,
                 intent TEXT DEFAULT '',
+                image_url TEXT DEFAULT NULL,
                 status TEXT NOT NULL DEFAULT 'open',
                 assigned_to TEXT DEFAULT NULL,
                 created_at TEXT DEFAULT (datetime('now')),
@@ -145,7 +156,38 @@ def _seed_sample_data(conn: sqlite3.Connection):
             (order_id, phone, status, items, delivery, refund),
         )
 
+    # Seed sample products
+    cursor = conn.execute("SELECT COUNT(*) FROM products")
+    if cursor.fetchone()[0] == 0:
+        products = [
+            ("Bolt Smartwatch Pro", "Premium waterproof smartwatch with 14-day battery life and AMOLED display.", 2999.0, "Electronics", 150),
+            ("Aura Noise Cancelling Headphones", "Over-ear active noise cancelling headphones with deep bass.", 4599.0, "Electronics", 85),
+            ("Flex Fit Running Shoes", "Lightweight breathable mesh running shoes for maximum comfort.", 1899.0, "Apparel", 220),
+            ("Hydrate Max Sipper", "1-liter insulated stainless steel water bottle, keeps cold for 24h.", 899.0, "Accessories", 300),
+            ("Urban Classic Tee", "100% organic cotton oversized t-shirt in solid colors.", 699.0, "Apparel", 450),
+        ]
+        conn.executemany(
+            "INSERT INTO products (name, description, price, category, stock) VALUES (?, ?, ?, ?, ?)",
+            products
+        )
+        log.info(f"Seeded {len(products)} sample products.")
+
     log.info("Seeded sample data: 4 customers, 4 orders")
+
+
+# ──────────────────────────────────────
+# Product Catalog Queries
+# ──────────────────────────────────────
+def search_products(query: str, limit: int = 3) -> list[dict]:
+    """Search for products matching a user's natural language query."""
+    with get_db() as conn:
+        # Simple LIKE search on name or description or category
+        search_term = f"%{query}%"
+        rows = conn.execute(
+            "SELECT * FROM products WHERE name LIKE ? OR description LIKE ? OR category LIKE ? LIMIT ?",
+            (search_term, search_term, search_term, limit)
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 # ──────────────────────────────────────
@@ -286,15 +328,15 @@ def get_conversation_summary(phone: str, limit: int = 5) -> str:
 # ──────────────────────────────────────
 # Ticket System
 # ──────────────────────────────────────
-def create_ticket(phone: str, message: str, intent: str) -> str:
+def create_ticket(phone: str, message: str, intent: str, image_url: str | None = None) -> str:
     """Create a support ticket and return its ticket ID."""
     import uuid
     ticket_id = f"TKT-{str(uuid.uuid4()).split('-')[0].upper()}"
 
     with get_db() as conn:
         conn.execute(
-            "INSERT INTO tickets (ticket_id, phone, message, intent) VALUES (?, ?, ?, ?)",
-            (ticket_id, phone, message, intent),
+            "INSERT INTO tickets (ticket_id, phone, message, intent, image_url) VALUES (?, ?, ?, ?, ?)",
+            (ticket_id, phone, message, intent, image_url),
         )
 
     log.info(f"Support ticket created: {ticket_id} for {phone} (intent: {intent})")
