@@ -1,35 +1,33 @@
 """
-Unit tests for database.py (using an in-memory SQLite DB).
+Unit tests for database.py (using isolated per-test temp SQLite DBs).
 """
 import sys
 import os
+import tempfile
 from unittest.mock import patch
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), ".."))
 
 
-# Patch DB_PATH before importing database to use in-memory DB
-with patch("config.get_settings") as mock_settings:
-    mock_settings.return_value.database_path = ":memory:"
-    mock_settings.return_value.log_level = "ERROR"
+# Patch config on first import so database.py loads without real env vars
+with patch("config.get_settings") as _mock_settings:
+    _mock_settings.return_value.database_path = ":memory:"
+    _mock_settings.return_value.log_level = "ERROR"
     import database as db_module
 
-# Override the DB path module-level to use a temp file for isolation
-import tempfile
-_tmp_db = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
-_tmp_db.close()
-db_module.DB_PATH = _tmp_db.name
 
-
-def setup_fresh_db():
-    """Initialize a fresh test database."""
-    db_module.DB_PATH = _tmp_db.name
+def _fresh_db() -> str:
+    """Create a brand-new temp DB, initialize it, and return the path."""
+    tmp = tempfile.NamedTemporaryFile(suffix=".db", delete=False)
+    tmp.close()
+    db_module.DB_PATH = tmp.name
     db_module.init_db()
+    return tmp.name
 
 
 class TestInitDb:
     def test_init_creates_tables(self):
-        setup_fresh_db()
+        _fresh_db()
         with db_module.get_db() as conn:
             tables = conn.execute(
                 "SELECT name FROM sqlite_master WHERE type='table'"
@@ -45,7 +43,7 @@ class TestInitDb:
 
 class TestCreateTicket:
     def setup_method(self):
-        setup_fresh_db()
+        _fresh_db()
 
     def test_create_ticket_returns_id(self):
         tid = db_module.create_ticket("+919000000001", "My package is broken", "DELIVERY_COMPLAINT")
@@ -74,7 +72,7 @@ class TestCreateTicket:
 
 class TestSearchProducts:
     def setup_method(self):
-        setup_fresh_db()
+        _fresh_db()
 
     def test_search_existing_product(self):
         results = db_module.search_products("smartwatch")
@@ -112,7 +110,7 @@ class TestSearchProducts:
 
 class TestSaveMessage:
     def setup_method(self):
-        setup_fresh_db()
+        _fresh_db()
 
     def test_save_message_user(self):
         db_module.save_message("+919000000010", "user", "Hello!", intent="GREETING", lang="en")
@@ -139,7 +137,7 @@ class TestSaveMessage:
 
 class TestGetOrderByPhone:
     def setup_method(self):
-        setup_fresh_db()
+        _fresh_db()
 
     def test_get_order_for_seeded_customer(self):
         order = db_module.get_order_by_phone("+919876543210")
@@ -153,7 +151,7 @@ class TestGetOrderByPhone:
 
 class TestCloseTicket:
     def setup_method(self):
-        setup_fresh_db()
+        _fresh_db()
 
     def test_close_ticket(self):
         tid = db_module.create_ticket("+919000000020", "Issue", "COMPLAINT")
