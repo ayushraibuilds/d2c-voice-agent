@@ -6,6 +6,7 @@ import {
   LayoutDashboard,
   MessageSquare,
   TicketCheck,
+  Package,
   ArrowLeft,
 } from "lucide-react";
 
@@ -13,6 +14,7 @@ const navItems = [
   { label: "Dashboard", href: "/admin", icon: LayoutDashboard },
   { label: "Conversations", href: "/admin/conversations", icon: MessageSquare },
   { label: "Tickets", href: "/admin/tickets", icon: TicketCheck },
+  { label: "Products", href: "/admin/products", icon: Package },
 ];
 
 export default function AdminLayout({

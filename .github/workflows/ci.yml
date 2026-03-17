@@ -10,7 +10,7 @@ jobs:
   # ────────────────────────────────
   # Backend: Lint + Syntax Check
   # ────────────────────────────────
-  backend-lint:
+  backend-ci:
     name: Backend Lint
     runs-on: ubuntu-latest
     defaults:
@@ -44,6 +44,15 @@ jobs:
               ast.parse(f.read_text())
           print(f'✅ All {len(files)} Python files parse OK')
           "
+
+      - name: Run unit tests
+        env:
+          # Provide dummy env vars so settings doesn't fail on import
+          TWILIO_ACCOUNT_SID: ACtest
+          TWILIO_AUTH_TOKEN: testtoken
+          GROQ_API_KEY: testkey
+          VALIDATE_TWILIO_SIGNATURE: "false"
+        run: pytest tests/ -v --tb=short
 
   # ────────────────────────────────
   # Frontend: Lint + Build
@@ -80,7 +89,7 @@ jobs:
   docker-build:
     name: Docker Build
     runs-on: ubuntu-latest
-    needs: [backend-lint, frontend-build]
+    needs: [backend-ci, frontend-build]
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
 
     steps:

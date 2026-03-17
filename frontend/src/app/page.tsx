@@ -6,6 +6,7 @@ import { FeatureGrid } from "@/components/FeatureGrid";
 import { Integrations } from "@/components/Integrations";
 import { Pricing } from "@/components/Pricing";
 import { Contact } from "@/components/Contact";
+import { Testimonials } from "@/components/Testimonials";
 
 export default function Home() {
   return (
@@ -15,6 +16,7 @@ export default function Home() {
       <InteractiveChat />
       <HowItWorks />
       <FeatureGrid />
+      <Testimonials />
       <Integrations />
       <Pricing />
       <Contact />

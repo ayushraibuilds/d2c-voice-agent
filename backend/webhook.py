@@ -5,6 +5,7 @@ import httpx
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request, Form, BackgroundTasks, HTTPException
 from fastapi.responses import PlainTextResponse
+from pydantic import BaseModel
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import Limiter, _rate_limit_exceeded_handler
 from slowapi.util import get_remote_address
@@ -293,6 +294,72 @@ async def close_ticket_endpoint(request: Request, ticket_id: str):
             )
             
     return {"status": "closed", "ticket_id": ticket_id}
+
+
+@app.get("/api/v1/products")
+@limiter.limit("30/minute")
+async def get_products(request: Request, q: str = "", limit: int = 20):
+    """List (or search) the product catalog."""
+    products = db.search_products(q, limit=limit)
+    return {"products": products, "count": len(products)}
+
+
+class NotificationRequest(BaseModel):
+    """Payload for triggering an outbound WhatsApp notification."""
+    phone: str
+    type: str  # shipped | out_for_delivery | delivered | delayed | order_confirmation | refund_update
+    from_number: str | None = None  # Defaults to first brand number
+    data: dict = {}
+
+
+@app.post("/api/v1/notifications/send")
+@limiter.limit("10/minute")
+async def send_notification(request: Request, payload: NotificationRequest):
+    """Trigger a proactive WhatsApp notification to a customer."""
+    import notifications as notif
+
+    notif_type = payload.type
+    data = payload.data
+
+    # Format the message based on type
+    if notif_type == "shipped":
+        message = notif.shipping_update_message(
+            data.get("order_id", ""), "shipped", data.get("tracking_url", "")
+        )
+    elif notif_type == "out_for_delivery":
+        message = notif.shipping_update_message(data.get("order_id", ""), "out_for_delivery")
+    elif notif_type == "delivered":
+        message = notif.shipping_update_message(data.get("order_id", ""), "delivered")
+    elif notif_type == "delayed":
+        message = notif.shipping_update_message(data.get("order_id", ""), "delayed")
+    elif notif_type == "order_confirmation":
+        message = notif.order_confirmation_message(
+            data.get("order_id", ""),
+            data.get("items", []),
+            data.get("estimated_delivery", "")
+        )
+    elif notif_type == "refund_update":
+        message = notif.refund_update_message(
+            data.get("order_id", ""),
+            data.get("status", ""),
+            data.get("amount", "")
+        )
+    else:
+        raise HTTPException(status_code=400, detail=f"Unknown notification type: {notif_type}")
+
+    # Resolve sender number (use payload.from_number or first registered brand)
+    from_number = payload.from_number
+    if not from_number:
+        with db.get_db() as conn:
+            brand = conn.execute("SELECT whatsapp_number FROM brands LIMIT 1").fetchone()
+            from_number = brand["whatsapp_number"] if brand else None
+
+    if not from_number:
+        raise HTTPException(status_code=422, detail="No sender phone number configured")
+
+    send_whatsapp_message(payload.phone, from_number, message)
+    log.info(f"Proactive notification sent: type={notif_type}, to={payload.phone}")
+    return {"status": "sent", "to": payload.phone, "type": notif_type}
 
 
 @app.post("/api/v1/whatsapp-webhook")
