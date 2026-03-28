@@ -10,7 +10,7 @@ ONDC and Shopify adapters are stubs ready for implementation.
 
 from abc import ABC, abstractmethod
 from typing import Optional
-
+import httpx
 from logger import get_logger
 
 log = get_logger()
@@ -89,31 +89,58 @@ class ONDCAdapter(EcommerceAdapter):
 class ShopifyAdapter(EcommerceAdapter):
     """
     Shopify Admin API adapter (stub).
-
-    TODO: Implement using Shopify Admin REST/GraphQL API:
-    - GET /orders/{id}.json for tracking
-    - POST /orders/{id}/cancel.json for cancellations
-    - POST /orders/{id}/refunds.json for refunds
     """
 
     def __init__(self, shop_domain: str, access_token: str):
         self.shop_domain = shop_domain
         self.access_token = access_token
+        self.base_url = f"https://{shop_domain}/admin/api/2024-01"
+        self.headers = {"X-Shopify-Access-Token": access_token}
         log.info(f"Shopify adapter initialized: shop={shop_domain}")
 
     def get_order_by_phone(self, phone: str) -> Optional[dict]:
-        log.warning("Shopify get_order_by_phone not yet implemented, falling back to None")
+        try:
+            with httpx.Client() as client:
+                url = f"{self.base_url}/customers/search.json?query=phone:{phone}"
+                resp = client.get(url, headers=self.headers)
+                data = resp.json()
+                if "customers" in data and len(data["customers"]) > 0:
+                    cust_id = data["customers"][0]["id"]
+                    ord_resp = client.get(f"{self.base_url}/customers/{cust_id}/orders.json", headers=self.headers)
+                    orders = ord_resp.json().get("orders", [])
+                    if orders:
+                        o = orders[0]
+                        return {
+                            "order_id": str(o["order_number"]),
+                            "status": o.get("fulfillment_status", "Processing"),
+                            "items": [item["name"] for item in o.get("line_items", [])]
+                        }
+        except Exception as e:
+            log.error(f"Shopify get_order_by_phone failed: {e}")
         return None
 
     def get_order_by_id(self, order_id: str) -> Optional[dict]:
-        log.warning("Shopify get_order_by_id not yet implemented, falling back to None")
+        try:
+            with httpx.Client() as client:
+                url = f"{self.base_url}/orders.json?name={order_id}"
+                resp = client.get(url, headers=self.headers)
+                orders = resp.json().get("orders", [])
+                if orders:
+                    o = orders[0]
+                    return {
+                        "order_id": str(o["order_number"]),
+                        "status": o.get("fulfillment_status", "Processing"),
+                        "items": [item["name"] for item in o.get("line_items", [])]
+                    }
+        except Exception as e:
+            log.error(f"Shopify get_order_by_id failed: {e}")
         return None
 
     def process_refund(self, order_id: str) -> dict:
-        return {"success": False, "message": "Shopify refund integration pending"}
+        return {"success": False, "message": "Shopify refund via API pending robust testing"}
 
     def cancel_order(self, order_id: str) -> dict:
-        return {"success": False, "message": "Shopify cancel integration pending"}
+        return {"success": False, "message": "Shopify order cancel via API pending robust testing"}
 
 
 # ──────────────────────────────────────

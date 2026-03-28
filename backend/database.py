@@ -48,6 +48,7 @@ def init_db():
             CREATE TABLE IF NOT EXISTS brands (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
                 name TEXT NOT NULL,
+                api_key TEXT UNIQUE,
                 whatsapp_number TEXT UNIQUE NOT NULL,
                 custom_prompt TEXT DEFAULT '',
                 webhook_url TEXT DEFAULT '',
@@ -117,9 +118,11 @@ def init_db():
         # Seed sample brand if brands table is empty
         cursor = conn.execute("SELECT COUNT(*) FROM brands")
         if cursor.fetchone()[0] == 0:
+            import secrets
+            api_key = secrets.token_hex(16)
             conn.execute(
-                "INSERT INTO brands (name, whatsapp_number, custom_prompt, webhook_url) VALUES (?, ?, ?, ?)",
-                ("Acme D2C", "+14155238886", "You are a highly professional and polite support agent for Acme D2C. Be concise and empathetic.", "http://localhost:8000/api/v1/dummy_webhook_receiver")
+                "INSERT INTO brands (name, api_key, whatsapp_number, custom_prompt, webhook_url) VALUES (?, ?, ?, ?, ?)",
+                ("Acme D2C", api_key, "+14155238886", "You are a highly professional and polite support agent for Acme D2C. Be concise and empathetic.", "http://localhost:8000/api/v1/dummy_webhook_receiver")
             )
 
         # Seed sample data if orders table is empty
