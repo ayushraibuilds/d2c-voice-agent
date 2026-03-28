@@ -3,6 +3,7 @@ import time
 import tempfile
 import httpx
 from contextlib import asynccontextmanager
+import sys
 from fastapi import FastAPI, Request, Form, BackgroundTasks, HTTPException
 from fastapi.responses import PlainTextResponse
 from pydantic import BaseModel
@@ -41,10 +42,29 @@ limiter = Limiter(key_func=get_remote_address)
 # ──────────────────────────────────────
 # App Lifecycle
 # ──────────────────────────────────────
+def startup_checks():
+    """Fail-fast deploy-time validations."""
+    missing = []
+    if not os.environ.get("TWILIO_ACCOUNT_SID") and not settings.twilio_account_sid:
+        missing.append("TWILIO_ACCOUNT_SID")
+    if not os.environ.get("TWILIO_AUTH_TOKEN") and not settings.twilio_auth_token:
+        missing.append("TWILIO_AUTH_TOKEN")
+    if not os.environ.get("GROQ_API_KEY") and not settings.groq_api_key:
+        missing.append("GROQ_API_KEY")
+        
+    if missing:
+        log.error(f"Deploy validation failed! Missing secrets: {', '.join(missing)}")
+        sys.exit(1)
+        
+    # Optional strict db check
+    if not db.supabase:
+        log.warning("Supabase is not configured. Features will be limited.")
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize database and dispatchers on startup."""
     log.info("Starting D2C Voice-First Agent...")
+    startup_checks()
     db.init_db()
     webhook_dispatcher.start_webhook_worker()
     log.info("Server ready. Webhook dispatcher running.")
@@ -370,6 +390,7 @@ async def whatsapp_webhook_v1(
     Body: str = Form(""),
     From: str = Form(""),
     To: str = Form(""),
+    MessageSid: str = Form(""),
     NumMedia: int = Form(0),
     MediaUrl0: str = Form(None),
     MediaContentType0: str = Form(None),
@@ -385,6 +406,15 @@ async def whatsapp_webhook_v1(
             raise HTTPException(status_code=403, detail="Invalid Twilio signature")
 
     twiml_response = MessagingResponse()
+    
+    # Idempotency Check: if this MessageSid was already processed (Twilio retry), exit early!
+    if MessageSid and db.is_message_processed(MessageSid):
+        log.info(f"Duplicate Twilio MessageSid detected: {MessageSid}. Returning 200 OK without processing.")
+        return PlainTextResponse(str(twiml_response), media_type="text/xml")
+        
+    if MessageSid:
+        db.mark_message_processed(MessageSid)
+
     background_tasks.add_task(
         handle_message_task, From, To, Body, NumMedia, MediaUrl0, MediaContentType0
     )
@@ -400,13 +430,14 @@ async def whatsapp_webhook_legacy(
     Body: str = Form(""),
     From: str = Form(""),
     To: str = Form(""),
+    MessageSid: str = Form(""),
     NumMedia: int = Form(0),
     MediaUrl0: str = Form(None),
     MediaContentType0: str = Form(None),
 ):
     """Legacy unversioned webhook — forwards to v1."""
     return await whatsapp_webhook_v1(
-        request, background_tasks, Body, From, To, NumMedia, MediaUrl0, MediaContentType0
+        request, background_tasks, Body, From, To, MessageSid, NumMedia, MediaUrl0, MediaContentType0
     )
 
 

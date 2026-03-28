@@ -65,3 +65,34 @@ def test_status_callback():
     )
     assert response.status_code == 200
     assert response.text == "OK"
+
+@patch("webhook.transcribe_audio_groq", return_value="Where is my order ORD-999?")
+@patch("database.get_brand_by_phone")
+@patch("webhook.send_whatsapp_message")
+def test_e2e_audio_message_processing(mock_send, mock_get_brand, mock_transcribe):
+    """Test the full flow from receiving an audio payload to parsing intent and sending response."""
+    mock_get_brand.return_value = {
+        "whatsapp_number": "+14155238886",
+        "name": "Test Brand"
+    }
+    
+    from webhook import handle_message_task
+    with patch("webhook.process_message", return_value="ORD-999 is shipped.") as mock_process:
+        # Simulate an incoming background task created from a WhatsApp audio file
+        handle_message_task(
+            "whatsapp:+919876543210", 
+            "whatsapp:+14155238886", 
+            "", 
+            1, 
+            "https://api.twilio.com/mock-audio.ogg", 
+            "audio/ogg"
+        )
+        
+        mock_transcribe.assert_called_once_with("https://api.twilio.com/mock-audio.ogg")
+        mock_process.assert_called_once_with(
+            "whatsapp:+919876543210", 
+            "Where is my order ORD-999?", 
+            mock_get_brand.return_value, 
+            None
+        )
+        mock_send.assert_called_once_with("whatsapp:+919876543210", "whatsapp:+14155238886", "ORD-999 is shipped.")

@@ -284,3 +284,27 @@ def close_ticket(ticket_id: str) -> bool:
     except Exception as e:
         log.error(f"Error closing ticket: {e}")
         return False
+
+# ──────────────────────────────────────
+# Webhook Idempotency Tracking
+# ──────────────────────────────────────
+def is_message_processed(message_sid: str) -> bool:
+    """Check if a Twilio message SID has already been processed."""
+    if not supabase or not message_sid:
+        return False
+    try:
+        response = supabase.table("processed_messages").select("message_sid").eq("message_sid", message_sid).execute()
+        return len(response.data) > 0
+    except Exception as e:
+        log.error(f"Error checking message idempotency for {message_sid}: {e}")
+        return False
+
+def mark_message_processed(message_sid: str) -> None:
+    """Mark a Twilio message SID as processed to prevent duplicate processing on retries."""
+    if not supabase or not message_sid:
+        return
+    try:
+        supabase.table("processed_messages").insert({"message_sid": message_sid}).execute()
+    except Exception as e:
+        # Ignore unique constraint violations (already inserted)
+        pass
