@@ -3,9 +3,6 @@
 import { useState } from 'react';
 import { LayoutDashboard, Users, MessageSquare, TicketIcon, Settings, Search, Download, BarChart3, Clock, Bot } from 'lucide-react';
 import Link from 'next/link';
-import { IntentBar } from '@/components/IntentBar';
-import { StatCard } from '@/components/StatCard';
-import { NavItem } from '@/components/NavItem';
 
 // The components IntentBar, StatCard, NavItem should exist in src/components.
 // Using inline implementations here for completeness in the page.
@@ -26,11 +23,11 @@ export default function AdminDashboard() {
           </Link>
         </div>
         <nav className="flex-1 p-4 space-y-1">
-          <NavItem active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<LayoutDashboard />} label="Overview" />
-          <NavItem active={activeTab === 'conversations'} onClick={() => setActiveTab('conversations')} icon={<MessageSquare />} label="Conversations" />
-          <NavItem active={activeTab === 'tickets'} onClick={() => setActiveTab('tickets')} icon={<TicketIcon />} label="Support Tickets" />
-          <NavItem active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} icon={<Users />} label="Customers" />
-          <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings />} label="Brand Settings" />
+          <LocalNavItem active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<LayoutDashboard />} label="Overview" />
+          <LocalNavItem active={activeTab === 'conversations'} onClick={() => setActiveTab('conversations')} icon={<MessageSquare />} label="Conversations" />
+          <LocalNavItem active={activeTab === 'tickets'} onClick={() => setActiveTab('tickets')} icon={<TicketIcon />} label="Support Tickets" />
+          <LocalNavItem active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} icon={<Users />} label="Customers" />
+          <LocalNavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings />} label="Brand Settings" />
         </nav>
       </aside>
 
@@ -53,10 +50,10 @@ export default function AdminDashboard() {
             <div className="space-y-6">
               {/* Stats Row */}
               <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-                <StatCard title="Total Messages" value="12,450" change="+14%" icon={<MessageSquare />} />
-                <StatCard title="Active Tickets" value="24" change="-5%" icon={<TicketIcon />} />
-                <StatCard title="Resolution Time" value="4.2m" change="-1.2m" icon={<Clock />} />
-                <StatCard title="CSAT Score" value="4.8/5" change="+0.2" icon={<BarChart3 />} />
+                <LocalStatCard title="Total Messages" value="12,450" change="+14%" icon={<MessageSquare />} />
+                <LocalStatCard title="Active Tickets" value="24" change="-5%" icon={<TicketIcon />} />
+                <LocalStatCard title="Resolution Time" value="4.2m" change="-1.2m" icon={<Clock />} />
+                <LocalStatCard title="CSAT Score" value="4.8/5" change="+0.2" icon={<BarChart3 />} />
               </div>
 
               {/* Charts area mockup */}
@@ -84,11 +81,11 @@ export default function AdminDashboard() {
                 <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
                   <h3 className="text-lg font-bold text-slate-800 mb-6">Top Intents</h3>
                   <div className="space-y-5">
-                    <IntentBar label="Where is my order?" percent={45} color="bg-indigo-500" />
-                    <IntentBar label="Return / Refund" percent={25} color="bg-rose-500" />
-                    <IntentBar label="Product Enquiry" percent={15} color="bg-emerald-500" />
-                    <IntentBar label="Cancel Order" percent={10} color="bg-amber-500" />
-                    <IntentBar label="Talk to Human" percent={5} color="bg-slate-400" />
+                    <LocalIntentBar label="Where is my order?" percent={45} color="bg-indigo-500" />
+                    <LocalIntentBar label="Return / Refund" percent={25} color="bg-rose-500" />
+                    <LocalIntentBar label="Product Enquiry" percent={15} color="bg-emerald-500" />
+                    <LocalIntentBar label="Cancel Order" percent={10} color="bg-amber-500" />
+                    <LocalIntentBar label="Talk to Human" percent={5} color="bg-slate-400" />
                   </div>
                 </div>
               </div>
@@ -147,7 +144,7 @@ export default function AdminDashboard() {
 }
 
 // Inline fallback UI components
-function NavItem({ icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) {
+function LocalNavItem({ icon, label, active, onClick }: { icon: React.ReactNode, label: string, active: boolean, onClick: () => void }) {
   return (
     <button
       onClick={onClick}
@@ -163,7 +160,7 @@ function NavItem({ icon, label, active, onClick }: { icon: any, label: string, a
   );
 }
 
-function StatCard({ title, value, change, icon }: { title: string, value: string, change: string, icon: any }) {
+function LocalStatCard({ title, value, change, icon }: { title: string, value: string, change: string, icon: React.ReactNode }) {
   const isPos = change.startsWith('+');
   return (
     <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
@@ -179,7 +176,7 @@ function StatCard({ title, value, change, icon }: { title: string, value: string
   );
 }
 
-function IntentBar({ label, percent, color }: { label: string, percent: number, color: string }) {
+function LocalIntentBar({ label, percent, color }: { label: string, percent: number, color: string }) {
   return (
     <div>
       <div className="flex justify-between text-sm font-medium mb-1.5">

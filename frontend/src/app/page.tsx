@@ -1,7 +1,7 @@
 'use client';
 
 import { useState } from 'react';
-import { Play, Pause, ArrowRight, Activity, Globe, Database, PhoneCall, CheckCircle } from 'lucide-react';
+import { Play, Pause, Activity, Globe, Database, PhoneCall, CheckCircle } from 'lucide-react';
 import Link from 'next/link';
 
 export default function LandingPage() {
@@ -73,7 +73,7 @@ export default function LandingPage() {
                 <div className="text-sm font-semibold text-slate-900">Listen to an AI Call</div>
                 <div className="text-xs text-slate-500 flex items-center gap-1">
                   <Activity className="w-3 h-3 text-indigo-500" />
-                  "Mera order kab aayega?"
+                  &quot;Mera order kab aayega?&quot;
                 </div>
               </div>
             </div>
@@ -100,7 +100,7 @@ export default function LandingPage() {
           
           {status === 'success' && (
             <p className="mt-4 text-sm font-medium text-green-600 animate-fade-in">
-              You're on the list! We'll reach out soon.
+              You&apos;re on the list! We&apos;ll reach out soon.
             </p>
           )}
 
