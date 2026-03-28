@@ -441,7 +441,7 @@ builder.add_node("detect_language", detect_language_node)
 builder.add_node("load_context", load_context_node)
 builder.add_node("vision_processing", vision_processing_node)
 builder.add_node("classify", classify_intent_node)
-builder.add_node("sentiment", sentiment_node)
+builder.add_node("sentiment_analysis", sentiment_node)
 builder.add_node("ORDER_STATUS", handle_order_status)
 builder.add_node("REFUND_REQUEST", handle_refund_request)
 builder.add_node("ORDER_CANCEL", handle_order_cancel)
@@ -459,10 +459,10 @@ builder.set_entry_point("detect_language")
 builder.add_edge("detect_language", "load_context")
 builder.add_edge("load_context", "vision_processing")
 builder.add_edge("vision_processing", "classify")
-builder.add_edge("classify", "sentiment")
+builder.add_edge("classify", "sentiment_analysis")
 
 builder.add_conditional_edges(
-    "sentiment",
+    "sentiment_analysis",
     route_intent,
     {
         "ORDER_STATUS": "ORDER_STATUS",

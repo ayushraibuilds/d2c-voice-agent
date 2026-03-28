@@ -48,7 +48,7 @@ def test_e2e_text_message_processing(mock_send, mock_get_brand):
     
     # We call the handler directly to test the processing pipeline (LangGraph + NLP)
     from webhook import handle_message_task
-    with patch("support_graph.process_message", return_value="Your order ORD-123 is on the way.") as mock_process:
+    with patch("webhook.process_message", return_value="Your order ORD-123 is on the way.") as mock_process:
         handle_message_task("whatsapp:+919876543210", "whatsapp:+14155238886", "track order ORD-123", 0, None, None)
         
         mock_process.assert_called_once_with("whatsapp:+919876543210", "track order ORD-123", mock_get_brand.return_value, None)
