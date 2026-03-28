@@ -1,294 +1,179 @@
 """
-SQLite database layer for D2C Voice-First Agent.
+Supabase database layer for D2C Voice-First Agent.
 
 Provides persistent storage for:
-- Orders (replacing the mock in-memory dict)
+- Orders
 - Customers
 - Conversations (message history)
 - Support tickets
+- Brands (Multi-tenant config)
+- Products
 
-Uses SQLite for local dev / single-server; swap the connection string
-for PostgreSQL/Supabase in production.
+Uses the official supabase-py client.
 """
 
-import sqlite3
 import json
-from typing import Optional
-from contextlib import contextmanager
+import uuid
+from typing import Optional, List, Dict, Any
 
+from supabase import create_client, Client
 from logger import get_logger
 from config import get_settings
 
-DB_PATH = get_settings().database_path
+settings = get_settings()
 
 log = get_logger()
 
+# We expect SUPABASE_URL and SUPABASE_SERVICE_KEY in settings or env
+supabase_url = getattr(settings, "supabase_url", None)
+supabase_key = getattr(settings, "supabase_service_key", None)
 
-@contextmanager
-def get_db():
-    """Context manager for database connections."""
-    conn = sqlite3.connect(DB_PATH)
-    conn.row_factory = sqlite3.Row
-    conn.execute("PRAGMA journal_mode=WAL")
-    conn.execute("PRAGMA foreign_keys=ON")
-    try:
-        yield conn
-        conn.commit()
-    except Exception:
-        conn.rollback()
-        raise
-    finally:
-        conn.close()
-
-
-def init_db():
-    """Create all tables if they don't exist and seed sample data."""
-    with get_db() as conn:
-        conn.executescript("""
-            CREATE TABLE IF NOT EXISTS brands (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                api_key TEXT UNIQUE,
-                whatsapp_number TEXT UNIQUE NOT NULL,
-                custom_prompt TEXT DEFAULT '',
-                webhook_url TEXT DEFAULT '',
-                created_at TEXT DEFAULT (datetime('now'))
-            );
-
-            CREATE TABLE IF NOT EXISTS products (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name TEXT NOT NULL,
-                description TEXT DEFAULT '',
-                price REAL NOT NULL,
-                category TEXT DEFAULT '',
-                stock INTEGER DEFAULT 0,
-                created_at TEXT DEFAULT (datetime('now'))
-            );
-
-            CREATE TABLE IF NOT EXISTS customers (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                phone TEXT UNIQUE NOT NULL,
-                name TEXT DEFAULT '',
-                created_at TEXT DEFAULT (datetime('now'))
-            );
-
-            CREATE TABLE IF NOT EXISTS orders (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                order_id TEXT UNIQUE NOT NULL,
-                customer_phone TEXT NOT NULL,
-                status TEXT NOT NULL DEFAULT 'Processing',
-                items TEXT NOT NULL DEFAULT '[]',
-                estimated_delivery TEXT DEFAULT '',
-                refund_status TEXT DEFAULT NULL,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now')),
-                FOREIGN KEY (customer_phone) REFERENCES customers(phone)
-            );
-
-            CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                phone TEXT NOT NULL,
-                role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
-                message TEXT NOT NULL,
-                intent TEXT DEFAULT '',
-                detected_lang TEXT DEFAULT 'en',
-                created_at TEXT DEFAULT (datetime('now'))
-            );
-
-            CREATE TABLE IF NOT EXISTS tickets (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                ticket_id TEXT UNIQUE NOT NULL,
-                phone TEXT NOT NULL,
-                message TEXT NOT NULL,
-                intent TEXT DEFAULT '',
-                image_url TEXT DEFAULT NULL,
-                status TEXT NOT NULL DEFAULT 'open',
-                assigned_to TEXT DEFAULT NULL,
-                created_at TEXT DEFAULT (datetime('now')),
-                updated_at TEXT DEFAULT (datetime('now'))
-            );
-
-            CREATE INDEX IF NOT EXISTS idx_orders_phone ON orders(customer_phone);
-            CREATE INDEX IF NOT EXISTS idx_orders_order_id ON orders(order_id);
-            CREATE INDEX IF NOT EXISTS idx_conversations_phone ON conversations(phone);
-            CREATE INDEX IF NOT EXISTS idx_tickets_phone ON tickets(phone);
-            CREATE INDEX IF NOT EXISTS idx_tickets_status ON tickets(status);
-        """)
-
-        # Seed sample brand if brands table is empty
-        cursor = conn.execute("SELECT COUNT(*) FROM brands")
-        if cursor.fetchone()[0] == 0:
-            import secrets
-            api_key = secrets.token_hex(16)
-            conn.execute(
-                "INSERT INTO brands (name, api_key, whatsapp_number, custom_prompt, webhook_url) VALUES (?, ?, ?, ?, ?)",
-                ("Acme D2C", api_key, "+14155238886", "You are a highly professional and polite support agent for Acme D2C. Be concise and empathetic.", "http://localhost:8000/api/v1/dummy_webhook_receiver")
-            )
-
-        # Seed sample data if orders table is empty
-        cursor = conn.execute("SELECT COUNT(*) FROM orders")
-        if cursor.fetchone()[0] == 0:
-            _seed_sample_data(conn)
-
-    log.info("Database initialized successfully")
-
-
-def _seed_sample_data(conn: sqlite3.Connection):
-    """Insert sample customers and orders for demo/dev."""
-    customers = [
-        ("+919876543210", "Rahul Sharma"),
-        ("+919988776655", "Priya Patel"),
-        ("+918877665544", "Amit Kumar"),
-        ("+917766554433", "Sneha Gupta"),
-    ]
-    for phone, name in customers:
-        conn.execute(
-            "INSERT OR IGNORE INTO customers (phone, name) VALUES (?, ?)",
-            (phone, name),
-        )
-
-    orders = [
-        ("ORD-12345", "+919876543210", "Out for Delivery", '["Wireless Earbuds", "Phone Case"]', "Today by 8 PM", None),
-        ("ORD-67890", "+919988776655", "Delivered", '["Smart Watch"]', "Delivered on 5th Oct", "Processing"),
-        ("ORD-11223", "+918877665544", "Processing", '["Running Shoes"]', "10th Oct", None),
-        ("ORD-44556", "+917766554433", "Cancelled", '["Yoga Mat"]', "N/A", "Refunded"),
-    ]
-    for order_id, phone, status, items, delivery, refund in orders:
-        conn.execute(
-            "INSERT OR IGNORE INTO orders (order_id, customer_phone, status, items, estimated_delivery, refund_status) VALUES (?, ?, ?, ?, ?, ?)",
-            (order_id, phone, status, items, delivery, refund),
-        )
-
-    # Seed sample products
-    cursor = conn.execute("SELECT COUNT(*) FROM products")
-    if cursor.fetchone()[0] == 0:
-        products = [
-            ("Bolt Smartwatch Pro", "Premium waterproof smartwatch with 14-day battery life and AMOLED display.", 2999.0, "Electronics", 150),
-            ("Aura Noise Cancelling Headphones", "Over-ear active noise cancelling headphones with deep bass.", 4599.0, "Electronics", 85),
-            ("Flex Fit Running Shoes", "Lightweight breathable mesh running shoes for maximum comfort.", 1899.0, "Apparel", 220),
-            ("Hydrate Max Sipper", "1-liter insulated stainless steel water bottle, keeps cold for 24h.", 899.0, "Accessories", 300),
-            ("Urban Classic Tee", "100% organic cotton oversized t-shirt in solid colors.", 699.0, "Apparel", 450),
-        ]
-        conn.executemany(
-            "INSERT INTO products (name, description, price, category, stock) VALUES (?, ?, ?, ?, ?)",
-            products
-        )
-        log.info(f"Seeded {len(products)} sample products.")
-
-    log.info("Seeded sample data: 4 customers, 4 orders")
+if supabase_url and supabase_key:
+    supabase: Client = create_client(supabase_url, supabase_key)
+else:
+    log.warning("SUPABASE_URL or SUPABASE_SERVICE_KEY not set. Database operations will fail.")
+    supabase = None
 
 
 # ──────────────────────────────────────
 # Product Catalog Queries
 # ──────────────────────────────────────
-def search_products(query: str, limit: int = 3) -> list[dict]:
+def search_products(query: str, limit: int = 3) -> List[Dict[str, Any]]:
     """Search for products matching a user's natural language query."""
-    with get_db() as conn:
-        # Simple LIKE search on name or description or category
-        search_term = f"%{query}%"
-        rows = conn.execute(
-            "SELECT * FROM products WHERE name LIKE ? OR description LIKE ? OR category LIKE ? LIMIT ?",
-            (search_term, search_term, search_term, limit)
-        ).fetchall()
-        return [dict(r) for r in rows]
+    if not supabase: return []
+    try:
+        # Simple text search on name or description using Supabase textSearch
+        response = supabase.table("products").select("*").text_search("name_desc_search", query).limit(limit).execute()
+        
+        # Fallback to ilike if text_search is not configured properly
+        if not response.data:
+            search_term = f"%{query}%"
+            res1 = supabase.table("products").select("*").ilike("name", search_term).limit(limit).execute()
+            res2 = supabase.table("products").select("*").ilike("description", search_term).limit(limit).execute()
+            
+            combined = {r["id"]: r for r in res1.data + res2.data}
+            return list(combined.values())[:limit]
+            
+        return response.data
+    except Exception as e:
+        log.error(f"Error searching products: {e}")
+        return []
 
 
 # ──────────────────────────────────────
 # Brand Queries
 # ──────────────────────────────────────
-def get_brand_by_phone(whatsapp_number: str) -> Optional[dict]:
+def get_brand_by_phone(whatsapp_number: str) -> Optional[Dict[str, Any]]:
     """Get brand configuration by its WhatsApp number."""
-    # Twilio sandbox numbers sometimes have formats like whatsapp:+14155238886
+    if not supabase: return None
+    
     if whatsapp_number.startswith("whatsapp:"):
         whatsapp_number = whatsapp_number.replace("whatsapp:", "")
         
-    with get_db() as conn:
-        row = conn.execute(
-            "SELECT * FROM brands WHERE whatsapp_number = ?",
-            (whatsapp_number,)
-        ).fetchone()
-        if row:
-            return dict(row)
+    try:
+        response = supabase.table("brands").select("*").eq("whatsapp_number", whatsapp_number).execute()
+        if response.data:
+            return response.data[0]
+            
+        # Fallback for dev: return first brand
+        fallback = supabase.table("brands").select("*").limit(1).execute()
+        if fallback.data:
+            return fallback.data[0]
+            
+    except Exception as e:
+        log.error(f"Error getting brand by phone: {e}")
         
-        # Fallback to the first brand if using an unmapped number (for dev)
-        row = conn.execute("SELECT * FROM brands LIMIT 1").fetchone()
-        if row:
-            return dict(row)
     return None
 
 
 # ──────────────────────────────────────
 # Order Queries
 # ──────────────────────────────────────
-def get_order_by_phone(phone: str) -> Optional[dict]:
+def get_order_by_phone(phone: str) -> Optional[Dict[str, Any]]:
     """Get the most recent order for a phone number."""
+    if not supabase: return None
+    
     if len(phone) == 10 and phone.isdigit():
         phone = f"+91{phone}"
 
-    with get_db() as conn:
-        row = conn.execute(
-            "SELECT * FROM orders WHERE customer_phone = ? ORDER BY created_at DESC LIMIT 1",
-            (phone,),
-        ).fetchone()
-        if row:
-            return _row_to_order(row)
+    try:
+        response = supabase.table("orders").select("*").eq("customer_phone", phone).order("created_at", desc=True).limit(1).execute()
+        if response.data:
+            return _format_order(response.data[0])
+    except Exception as e:
+        log.error(f"Error getting order by phone: {e}")
+        
     return None
 
 
-def get_order_by_id(order_id: str) -> Optional[dict]:
+def get_order_by_id(order_id: str) -> Optional[Dict[str, Any]]:
     """Get an order by its order ID."""
-    with get_db() as conn:
-        row = conn.execute(
-            "SELECT * FROM orders WHERE order_id = ?", (order_id,)
-        ).fetchone()
-        if row:
-            return _row_to_order(row)
+    if not supabase: return None
+    try:
+        response = supabase.table("orders").select("*").eq("order_id", order_id).execute()
+        if response.data:
+            return _format_order(response.data[0])
+    except Exception as e:
+        log.error(f"Error getting order by id: {e}")
     return None
 
 
-def process_refund(order_id: str) -> dict:
+def process_refund(order_id: str) -> Dict[str, Any]:
     """Process a refund for an order."""
+    if not supabase: return {"success": False, "message": "Supabase not configured."}
+    
     order = get_order_by_id(order_id)
     if not order:
         return {"success": False, "message": "Order not found."}
 
-    if order["status"] not in ("Delivered", "Processing"):
-        return {"success": False, "message": f"Cannot refund order in status: {order['status']}"}
+    if order.get("status") not in ("Delivered", "Processing"):
+        return {"success": False, "message": f"Cannot refund order in status: {order.get('status')}"}
 
-    if order["refund_status"]:
-        return {"success": False, "message": f"Refund already in status: {order['refund_status']}"}
+    if order.get("refund_status"):
+        return {"success": False, "message": f"Refund already in status: {order.get('refund_status')}"}
 
-    with get_db() as conn:
-        conn.execute(
-            "UPDATE orders SET refund_status = 'Initiated', updated_at = datetime('now') WHERE order_id = ?",
-            (order_id,),
-        )
-    return {"success": True, "message": f"Refund initiated for order {order_id}"}
+    try:
+        supabase.table("orders").update({
+            "refund_status": "Initiated"
+        }).eq("order_id", order_id).execute()
+        return {"success": True, "message": f"Refund initiated for order {order_id}"}
+    except Exception as e:
+        log.error(f"Error processing refund: {e}")
+        return {"success": False, "message": str(e)}
 
 
-def cancel_order(order_id: str) -> dict:
+def cancel_order(order_id: str) -> Dict[str, Any]:
     """Cancel an order (only if Processing)."""
+    if not supabase: return {"success": False, "message": "Supabase not configured."}
+    
     order = get_order_by_id(order_id)
     if not order:
         return {"success": False, "message": "Order not found."}
 
-    if order["status"] != "Processing":
-        return {"success": False, "message": f"Cannot cancel order in status: {order['status']}"}
+    if order.get("status") != "Processing":
+        return {"success": False, "message": f"Cannot cancel order in status: {order.get('status')}"}
 
-    with get_db() as conn:
-        conn.execute(
-            "UPDATE orders SET status = 'Cancelled', refund_status = 'Initiated', updated_at = datetime('now') WHERE order_id = ?",
-            (order_id,),
-        )
-    return {"success": True, "message": f"Order {order_id} cancelled and refund initiated."}
+    try:
+        supabase.table("orders").update({
+            "status": "Cancelled",
+            "refund_status": "Initiated"
+        }).eq("order_id", order_id).execute()
+        return {"success": True, "message": f"Order {order_id} cancelled and refund initiated."}
+    except Exception as e:
+        log.error(f"Error cancelling order: {e}")
+        return {"success": False, "message": str(e)}
 
 
-def _row_to_order(row: sqlite3.Row) -> dict:
-    """Convert a database row to an order dict."""
-    d = dict(row)
-    d["items"] = json.loads(d.get("items", "[]"))
-    d["phone"] = d.get("customer_phone", "")
-    return d
+def _format_order(order_data: Dict[str, Any]) -> Dict[str, Any]:
+    """Ensure items are treated as JSON list and map phone."""
+    try:
+        if isinstance(order_data.get("items"), str):
+            order_data["items"] = json.loads(order_data["items"])
+    except json.JSONDecodeError:
+        order_data["items"] = []
+    
+    order_data["phone"] = order_data.get("customer_phone", "")
+    return order_data
 
 
 # ──────────────────────────────────────
@@ -296,22 +181,31 @@ def _row_to_order(row: sqlite3.Row) -> dict:
 # ──────────────────────────────────────
 def save_message(phone: str, role: str, message: str, intent: str = "", lang: str = "en"):
     """Save a conversation message."""
-    with get_db() as conn:
-        conn.execute(
-            "INSERT INTO conversations (phone, role, message, intent, detected_lang) VALUES (?, ?, ?, ?, ?)",
-            (phone, role, message, intent, lang),
-        )
+    if not supabase: return
+    try:
+        supabase.table("conversations").insert({
+            "phone": phone,
+            "role": role,
+            "message": message,
+            "intent": intent,
+            "detected_lang": lang
+        }).execute()
+    except Exception as e:
+        log.error(f"Error saving message: {e}")
 
 
-def get_conversation_history(phone: str, limit: int = 10) -> list[dict]:
+def get_conversation_history(phone: str, limit: int = 10) -> List[Dict[str, Any]]:
     """Get recent conversation history for a phone number."""
-    with get_db() as conn:
-        rows = conn.execute(
-            "SELECT role, message, intent, detected_lang, created_at FROM conversations WHERE phone = ? ORDER BY id DESC LIMIT ?",
-            (phone, limit),
-        ).fetchall()
-        # Return in chronological order
-        return [dict(r) for r in reversed(rows)]
+    if not supabase: return []
+    try:
+        response = supabase.table("conversations").select(
+            "role, message, intent, detected_lang, created_at"
+        ).eq("phone", phone).order("created_at", desc=False).limit(limit).execute()
+        
+        return response.data
+    except Exception as e:
+        log.error(f"Error getting history: {e}")
+        return []
 
 
 def get_conversation_summary(phone: str, limit: int = 5) -> str:
@@ -322,8 +216,8 @@ def get_conversation_summary(phone: str, limit: int = 5) -> str:
 
     lines = []
     for msg in history:
-        role = "Customer" if msg["role"] == "user" else "Agent"
-        lines.append(f"{role}: {msg['message']}")
+        role = "Customer" if msg.get("role") == "user" else "Agent"
+        lines.append(f"{role}: {msg.get('message')}")
 
     return "\n".join(lines)
 
@@ -331,41 +225,51 @@ def get_conversation_summary(phone: str, limit: int = 5) -> str:
 # ──────────────────────────────────────
 # Ticket System
 # ──────────────────────────────────────
-def create_ticket(phone: str, message: str, intent: str, image_url: str | None = None) -> str:
+def create_ticket(phone: str, message: str, intent: str, image_url: Optional[str] = None) -> str:
     """Create a support ticket and return its ticket ID."""
-    import uuid
     ticket_id = f"TKT-{str(uuid.uuid4()).split('-')[0].upper()}"
 
-    with get_db() as conn:
-        conn.execute(
-            "INSERT INTO tickets (ticket_id, phone, message, intent, image_url) VALUES (?, ?, ?, ?, ?)",
-            (ticket_id, phone, message, intent, image_url),
-        )
-
-    log.info(f"Support ticket created: {ticket_id} for {phone} (intent: {intent})")
+    if not supabase: return ticket_id
+    
+    try:
+        supabase.table("tickets").insert({
+            "ticket_id": ticket_id,
+            "phone": phone,
+            "message": message,
+            "intent": intent,
+            "image_url": image_url,
+            "status": "open"
+        }).execute()
+        log.info(f"Support ticket created: {ticket_id} for {phone} (intent: {intent})")
+    except Exception as e:
+        log.error(f"Error creating ticket: {e}")
+        
     return ticket_id
 
 
-def get_open_tickets(phone: str | None = None) -> list[dict]:
+def get_open_tickets(phone: Optional[str] = None) -> List[Dict[str, Any]]:
     """Get open tickets, optionally filtered by phone."""
-    with get_db() as conn:
+    if not supabase: return []
+    try:
+        query = supabase.table("tickets").select("*").eq("status", "open")
         if phone:
-            rows = conn.execute(
-                "SELECT * FROM tickets WHERE phone = ? AND status = 'open' ORDER BY created_at DESC",
-                (phone,),
-            ).fetchall()
-        else:
-            rows = conn.execute(
-                "SELECT * FROM tickets WHERE status = 'open' ORDER BY created_at DESC"
-            ).fetchall()
-        return [dict(r) for r in rows]
+            query = query.eq("phone", phone)
+            
+        response = query.order("created_at", desc=True).execute()
+        return response.data
+    except Exception as e:
+        log.error(f"Error getting open tickets: {e}")
+        return []
 
 
 def close_ticket(ticket_id: str) -> bool:
     """Close a support ticket."""
-    with get_db() as conn:
-        cursor = conn.execute(
-            "UPDATE tickets SET status = 'closed', updated_at = datetime('now') WHERE ticket_id = ?",
-            (ticket_id,),
-        )
-        return cursor.rowcount > 0
+    if not supabase: return False
+    try:
+        response = supabase.table("tickets").update({
+            "status": "closed"
+        }).eq("ticket_id", ticket_id).execute()
+        return len(response.data) > 0
+    except Exception as e:
+        log.error(f"Error closing ticket: {e}")
+        return False

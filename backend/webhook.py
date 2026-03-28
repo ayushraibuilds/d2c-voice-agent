@@ -408,3 +408,34 @@ async def whatsapp_webhook_legacy(
     return await whatsapp_webhook_v1(
         request, background_tasks, Body, From, To, NumMedia, MediaUrl0, MediaContentType0
     )
+
+
+@app.post("/api/v1/twilio/status")
+async def twilio_status_callback(
+    request: Request,
+    MessageSid: str = Form(""),
+    MessageStatus: str = Form(""),
+    To: str = Form(""),
+    From: str = Form(""),
+    ErrorCode: str = Form(None),
+    ErrorMessage: str = Form(None),
+):
+    """Callback to track outbound WhatsApp message delivery status."""
+    log.info(f"Twilio message {MessageSid} to {To} status transitioned to {MessageStatus}")
+    if MessageStatus == "failed" or MessageStatus == "undelivered":
+        log.error(f"Message {MessageSid} failed to send. Error code: {ErrorCode}. Message: {ErrorMessage}")
+        # Here we could record the failure in Supabase for admin analytics:
+        brand = db.get_brand_by_phone(From)
+        if brand and brand.get("webhook_url"):
+            # Dispatch event to brand's own server if configured
+            webhook_dispatcher.dispatch_event(
+                brand["webhook_url"], 
+                "message.failed", 
+                {
+                    "message_sid": MessageSid,
+                    "to": To,
+                    "error_code": ErrorCode,
+                    "error_message": ErrorMessage
+                }
+            )
+    return PlainTextResponse("OK", status_code=200)

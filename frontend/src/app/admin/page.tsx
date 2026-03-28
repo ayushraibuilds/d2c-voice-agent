@@ -1,170 +1,193 @@
-"use client";
+'use client';
 
-import { useEffect, useState } from "react";
-import {
-  MessageSquare,
-  TicketCheck,
-  Users,
-  Package,
-  TrendingUp,
-  Clock,
-} from "lucide-react";
+import { useState } from 'react';
+import { LayoutDashboard, Users, MessageSquare, TicketIcon, Settings, Search, Download, BarChart3, Clock, Bot } from 'lucide-react';
+import Link from 'next/link';
+import { IntentBar } from '@/components/IntentBar';
+import { StatCard } from '@/components/StatCard';
+import { NavItem } from '@/components/NavItem';
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-
-interface Stats {
-  total_messages: number;
-  total_tickets: number;
-  open_tickets: number;
-  total_orders: number;
-  unique_customers: number;
-  messages_last_24h: number;
-  intent_breakdown: Record<string, number>;
-  lang_breakdown: Record<string, number>;
-}
-
-const INTENT_COLORS: Record<string, string> = {
-  ORDER_STATUS: "bg-blue-500",
-  REFUND_REQUEST: "bg-amber-500",
-  ORDER_CANCEL: "bg-red-500",
-  EXCHANGE_REQUEST: "bg-purple-500",
-  PAYMENT_ISSUE: "bg-orange-500",
-  DELIVERY_COMPLAINT: "bg-rose-500",
-  PRODUCT_FAQ: "bg-cyan-500",
-  HUMAN_HANDOFF: "bg-yellow-500",
-  GREETING: "bg-green-500",
-  UNKNOWN: "bg-gray-500",
-};
+// The components IntentBar, StatCard, NavItem should exist in src/components.
+// Using inline implementations here for completeness in the page.
 
 export default function AdminDashboard() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    fetch(`${API_BASE}/api/v1/stats`)
-      .then((r) => r.json())
-      .then(setStats)
-      .catch(console.error)
-      .finally(() => setLoading(false));
-  }, []);
-
-  if (loading) {
-    return (
-      <div className="flex items-center justify-center h-64">
-        <div className="h-8 w-8 border-2 border-indigo-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
-
-  if (!stats) {
-    return (
-      <div className="text-center py-12">
-        <p className="text-gray-400">Could not load stats. Is the backend running?</p>
-        <p className="text-sm text-gray-500 mt-2">
-          Expected at <code className="text-indigo-400">{API_BASE}</code>
-        </p>
-      </div>
-    );
-  }
-
-  const cards = [
-    { label: "Total Messages", value: stats.total_messages, icon: MessageSquare, color: "text-blue-400" },
-    { label: "Last 24 Hours", value: stats.messages_last_24h, icon: Clock, color: "text-cyan-400" },
-    { label: "Unique Customers", value: stats.unique_customers, icon: Users, color: "text-green-400" },
-    { label: "Total Orders", value: stats.total_orders, icon: Package, color: "text-amber-400" },
-    { label: "Open Tickets", value: stats.open_tickets, icon: TicketCheck, color: "text-red-400" },
-    { label: "Total Tickets", value: stats.total_tickets, icon: TrendingUp, color: "text-purple-400" },
-  ];
-
-  const totalIntents = Object.values(stats.intent_breakdown).reduce((a, b) => a + b, 0);
+  const [activeTab, setActiveTab] = useState('overview');
 
   return (
-    <div className="space-y-8">
-      <div>
-        <h1 className="text-2xl font-bold text-white">Dashboard</h1>
-        <p className="text-gray-400 mt-1">Agent performance overview</p>
-      </div>
+    <div className="min-h-screen bg-slate-50 flex font-sans">
+      {/* Sidebar */}
+      <aside className="w-64 bg-slate-900 text-white flex flex-col h-screen sticky top-0">
+        <div className="p-6 border-b border-slate-800">
+          <Link href="/" className="flex items-center gap-3">
+            <div className="w-8 h-8 bg-indigo-500 rounded-lg flex items-center justify-center">
+              <Bot className="w-5 h-5 text-white" />
+            </div>
+            <span className="text-xl font-bold tracking-tight">Acme D2C</span>
+          </Link>
+        </div>
+        <nav className="flex-1 p-4 space-y-1">
+          <NavItem active={activeTab === 'overview'} onClick={() => setActiveTab('overview')} icon={<LayoutDashboard />} label="Overview" />
+          <NavItem active={activeTab === 'conversations'} onClick={() => setActiveTab('conversations')} icon={<MessageSquare />} label="Conversations" />
+          <NavItem active={activeTab === 'tickets'} onClick={() => setActiveTab('tickets')} icon={<TicketIcon />} label="Support Tickets" />
+          <NavItem active={activeTab === 'customers'} onClick={() => setActiveTab('customers')} icon={<Users />} label="Customers" />
+          <NavItem active={activeTab === 'settings'} onClick={() => setActiveTab('settings')} icon={<Settings />} label="Brand Settings" />
+        </nav>
+      </aside>
 
-      {/* Stat Cards */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-        {cards.map((card) => (
-          <div
-            key={card.label}
-            className="bg-white/5 rounded-xl border border-white/10 p-5 hover:bg-white/[.07] transition-colors"
-          >
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-gray-400">{card.label}</p>
-                <p className="text-2xl font-bold text-white mt-1">
-                  {card.value.toLocaleString()}
-                </p>
-              </div>
-              <card.icon className={`h-8 w-8 ${card.color} opacity-50`} />
+      {/* Main Content */}
+      <main className="flex-1 overflow-y-auto">
+        <header className="bg-white border-b border-slate-200 px-8 py-5 flex items-center justify-between sticky top-0 z-10">
+          <h1 className="text-2xl font-bold text-slate-800 capitalize">{activeTab}</h1>
+          <div className="flex items-center gap-4">
+            <button className="p-2 text-slate-400 hover:text-slate-600 transition bg-slate-100 rounded-full">
+              <Search className="w-5 h-5" />
+            </button>
+            <div className="w-10 h-10 bg-indigo-100 text-indigo-700 font-bold rounded-full flex items-center justify-center border-2 border-indigo-200">
+              JS
             </div>
           </div>
-        ))}
-      </div>
+        </header>
 
-      {/* Charts Row */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Intent Breakdown */}
-        <div className="bg-white/5 rounded-xl border border-white/10 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Intent Breakdown</h3>
-          {Object.entries(stats.intent_breakdown).length > 0 ? (
-            <div className="space-y-3">
-              {Object.entries(stats.intent_breakdown).map(([intent, count]) => (
-                <div key={intent} className="flex items-center gap-3">
-                  <div className={`h-3 w-3 rounded-full ${INTENT_COLORS[intent] || "bg-gray-500"}`} />
-                  <span className="text-sm text-gray-300 w-40 truncate">{intent}</span>
-                  <div className="flex-1 bg-white/10 rounded-full h-2 overflow-hidden">
-                    <div
-                      className={`h-full rounded-full ${INTENT_COLORS[intent] || "bg-gray-500"}`}
-                      style={{ width: `${(count / totalIntents) * 100}%` }}
-                    />
+        <div className="p-8">
+          {activeTab === 'overview' && (
+            <div className="space-y-6">
+              {/* Stats Row */}
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
+                <StatCard title="Total Messages" value="12,450" change="+14%" icon={<MessageSquare />} />
+                <StatCard title="Active Tickets" value="24" change="-5%" icon={<TicketIcon />} />
+                <StatCard title="Resolution Time" value="4.2m" change="-1.2m" icon={<Clock />} />
+                <StatCard title="CSAT Score" value="4.8/5" change="+0.2" icon={<BarChart3 />} />
+              </div>
+
+              {/* Charts area mockup */}
+              <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+                <div className="col-span-2 bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                  <h3 className="text-lg font-bold text-slate-800 mb-6 flex justify-between items-center">
+                    Message Volume
+                    <span className="text-sm font-medium text-slate-500 bg-slate-100 px-3 py-1 rounded-full">Last 7 Days</span>
+                  </h3>
+                  <div className="h-64 flex items-end justify-between gap-2">
+                    {[30, 45, 25, 60, 80, 50, 95].map((h, i) => (
+                      <div key={i} className="w-full bg-indigo-100 rounded-t-md relative group">
+                        <div 
+                          className="absolute bottom-0 w-full bg-indigo-500 rounded-t-md transition-all duration-500 group-hover:bg-indigo-600"
+                          style={{ height: `${h}%` }}
+                        ></div>
+                      </div>
+                    ))}
                   </div>
-                  <span className="text-sm text-gray-400 w-10 text-right">{count}</span>
+                  <div className="flex justify-between mt-4 text-xs font-medium text-slate-400">
+                    <span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span><span>Sun</span>
+                  </div>
                 </div>
-              ))}
-            </div>
-          ) : (
-            <p className="text-sm text-gray-500">No data yet. Start some conversations!</p>
-          )}
-        </div>
 
-        {/* Language Breakdown */}
-        <div className="bg-white/5 rounded-xl border border-white/10 p-6">
-          <h3 className="text-lg font-semibold text-white mb-4">Language Distribution</h3>
-          {Object.entries(stats.lang_breakdown).length > 0 ? (
-            <div className="space-y-3">
-              {Object.entries(stats.lang_breakdown).map(([lang, count]) => {
-                const langNames: Record<string, string> = {
-                  en: "English",
-                  hi: "Hindi",
-                  ta: "Tamil",
-                  te: "Telugu",
-                  kn: "Kannada",
-                  bn: "Bengali",
-                };
-                return (
-                  <div key={lang} className="flex items-center gap-3">
-                    <span className="text-sm text-gray-300 w-20">{langNames[lang] || lang}</span>
-                    <div className="flex-1 bg-white/10 rounded-full h-2 overflow-hidden">
-                      <div
-                        className="h-full rounded-full bg-indigo-500"
-                        style={{
-                          width: `${(count / Math.max(...Object.values(stats.lang_breakdown))) * 100}%`,
-                        }}
-                      />
-                    </div>
-                    <span className="text-sm text-gray-400 w-10 text-right">{count}</span>
+                <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+                  <h3 className="text-lg font-bold text-slate-800 mb-6">Top Intents</h3>
+                  <div className="space-y-5">
+                    <IntentBar label="Where is my order?" percent={45} color="bg-indigo-500" />
+                    <IntentBar label="Return / Refund" percent={25} color="bg-rose-500" />
+                    <IntentBar label="Product Enquiry" percent={15} color="bg-emerald-500" />
+                    <IntentBar label="Cancel Order" percent={10} color="bg-amber-500" />
+                    <IntentBar label="Talk to Human" percent={5} color="bg-slate-400" />
                   </div>
-                );
-              })}
+                </div>
+              </div>
             </div>
-          ) : (
-            <p className="text-sm text-gray-500">No data yet.</p>
+          )}
+
+          {activeTab === 'conversations' && (
+            <div className="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden">
+              <div className="p-4 border-b border-slate-200 flex justify-between items-center bg-slate-50">
+                <div className="relative w-64">
+                  <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
+                  <input type="text" placeholder="Search by phone..." className="w-full pl-9 pr-4 py-2 border border-slate-200 rounded-lg text-sm outline-none focus:ring-2 focus:ring-indigo-500" />
+                </div>
+                <button className="flex items-center gap-2 px-4 py-2 bg-white border border-slate-200 text-slate-700 text-sm font-medium rounded-lg hover:bg-slate-50 transition">
+                  <Download className="w-4 h-4" /> Export CSV
+                </button>
+              </div>
+              <table className="w-full text-left text-sm">
+                <thead className="bg-slate-50 text-slate-500 border-b border-slate-200">
+                  <tr>
+                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Customer</th>
+                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Last Intent</th>
+                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Language</th>
+                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs">Time</th>
+                    <th className="px-6 py-4 font-semibold uppercase tracking-wider text-xs text-right">Action</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {[
+                    { phone: '+91 98765 43210', intent: 'track_order', lang: 'English', time: '2 mins ago' },
+                    { phone: '+91 99887 76655', intent: 'refund_status', lang: 'Hindi (VOICE)', time: '15 mins ago' },
+                    { phone: '+91 88776 65544', intent: 'talk_to_human', lang: 'Hinglish', time: '1 hour ago' },
+                  ].map((row, i) => (
+                    <tr key={i} className="hover:bg-slate-50 transition cursor-pointer group">
+                      <td className="px-6 py-4 font-medium text-indigo-600">{row.phone}</td>
+                      <td className="px-6 py-4 text-slate-700">
+                        <span className="px-2.5 py-1 bg-slate-100 text-slate-600 rounded-[4px] text-xs font-bold font-mono border border-slate-200">
+                          {row.intent}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 text-slate-500">{row.lang}</td>
+                      <td className="px-6 py-4 text-slate-400">{row.time}</td>
+                      <td className="px-6 py-4 text-right">
+                        <span className="text-indigo-600 text-sm font-medium opacity-0 group-hover:opacity-100 transition">View Transcript &rarr;</span>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
           )}
         </div>
+      </main>
+    </div>
+  );
+}
+
+// Inline fallback UI components
+function NavItem({ icon, label, active, onClick }: { icon: any, label: string, active: boolean, onClick: () => void }) {
+  return (
+    <button
+      onClick={onClick}
+      className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition ${
+        active 
+          ? 'bg-indigo-600 text-white font-medium' 
+          : 'text-slate-400 hover:text-slate-200 hover:bg-slate-800 font-medium'
+      }`}
+    >
+      <div className="w-5 h-5">{icon}</div>
+      <span>{label}</span>
+    </button>
+  );
+}
+
+function StatCard({ title, value, change, icon }: { title: string, value: string, change: string, icon: any }) {
+  const isPos = change.startsWith('+');
+  return (
+    <div className="bg-white p-6 rounded-2xl shadow-sm border border-slate-200">
+      <div className="flex justify-between items-start mb-4">
+        <div className="p-3 bg-indigo-50 text-indigo-600 rounded-xl">{icon}</div>
+        <span className={`text-xs font-bold px-2 py-1 rounded-full ${isPos ? 'text-emerald-700 bg-emerald-50 border border-emerald-100' : 'text-rose-700 bg-rose-50 border border-rose-100'}`}>
+          {change}
+        </span>
+      </div>
+      <h4 className="text-slate-500 text-sm font-semibold mb-1 uppercase tracking-wider">{title}</h4>
+      <div className="text-3xl font-bold text-slate-900">{value}</div>
+    </div>
+  );
+}
+
+function IntentBar({ label, percent, color }: { label: string, percent: number, color: string }) {
+  return (
+    <div>
+      <div className="flex justify-between text-sm font-medium mb-1.5">
+        <span className="text-slate-700">{label}</span>
+        <span className="text-slate-500">{percent}%</span>
+      </div>
+      <div className="w-full bg-slate-100 rounded-full h-2 overflow-hidden">
+        <div className={`h-2 rounded-full ${color}`} style={{ width: `${percent}%` }}></div>
       </div>
     </div>
   );
