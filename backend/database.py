@@ -40,7 +40,8 @@ else:
 # ──────────────────────────────────────
 def search_products(query: str, limit: int = 3) -> List[Dict[str, Any]]:
     """Search for products matching a user's natural language query."""
-    if not supabase: return []
+    if not supabase:
+        return []
     try:
         # Simple text search on name or description using Supabase textSearch
         response = supabase.table("products").select("*").text_search("name_desc_search", query).limit(limit).execute()
@@ -65,7 +66,8 @@ def search_products(query: str, limit: int = 3) -> List[Dict[str, Any]]:
 # ──────────────────────────────────────
 def get_brand_by_phone(whatsapp_number: str) -> Optional[Dict[str, Any]]:
     """Get brand configuration by its WhatsApp number."""
-    if not supabase: return None
+    if not supabase:
+        return None
     
     if whatsapp_number.startswith("whatsapp:"):
         whatsapp_number = whatsapp_number.replace("whatsapp:", "")
@@ -91,7 +93,8 @@ def get_brand_by_phone(whatsapp_number: str) -> Optional[Dict[str, Any]]:
 # ──────────────────────────────────────
 def get_order_by_phone(phone: str) -> Optional[Dict[str, Any]]:
     """Get the most recent order for a phone number."""
-    if not supabase: return None
+    if not supabase:
+        return None
     
     if len(phone) == 10 and phone.isdigit():
         phone = f"+91{phone}"
@@ -108,7 +111,8 @@ def get_order_by_phone(phone: str) -> Optional[Dict[str, Any]]:
 
 def get_order_by_id(order_id: str) -> Optional[Dict[str, Any]]:
     """Get an order by its order ID."""
-    if not supabase: return None
+    if not supabase:
+        return None
     try:
         response = supabase.table("orders").select("*").eq("order_id", order_id).execute()
         if response.data:
@@ -120,7 +124,8 @@ def get_order_by_id(order_id: str) -> Optional[Dict[str, Any]]:
 
 def process_refund(order_id: str) -> Dict[str, Any]:
     """Process a refund for an order."""
-    if not supabase: return {"success": False, "message": "Supabase not configured."}
+    if not supabase:
+        return {"success": False, "message": "Supabase not configured."}
     
     order = get_order_by_id(order_id)
     if not order:
@@ -144,7 +149,8 @@ def process_refund(order_id: str) -> Dict[str, Any]:
 
 def cancel_order(order_id: str) -> Dict[str, Any]:
     """Cancel an order (only if Processing)."""
-    if not supabase: return {"success": False, "message": "Supabase not configured."}
+    if not supabase:
+        return {"success": False, "message": "Supabase not configured."}
     
     order = get_order_by_id(order_id)
     if not order:
@@ -181,7 +187,8 @@ def _format_order(order_data: Dict[str, Any]) -> Dict[str, Any]:
 # ──────────────────────────────────────
 def save_message(phone: str, role: str, message: str, intent: str = "", lang: str = "en"):
     """Save a conversation message."""
-    if not supabase: return
+    if not supabase:
+        return
     try:
         supabase.table("conversations").insert({
             "phone": phone,
@@ -196,7 +203,8 @@ def save_message(phone: str, role: str, message: str, intent: str = "", lang: st
 
 def get_conversation_history(phone: str, limit: int = 10) -> List[Dict[str, Any]]:
     """Get recent conversation history for a phone number."""
-    if not supabase: return []
+    if not supabase:
+        return []
     try:
         response = supabase.table("conversations").select(
             "role, message, intent, detected_lang, created_at"
@@ -229,7 +237,8 @@ def create_ticket(phone: str, message: str, intent: str, image_url: Optional[str
     """Create a support ticket and return its ticket ID."""
     ticket_id = f"TKT-{str(uuid.uuid4()).split('-')[0].upper()}"
 
-    if not supabase: return ticket_id
+    if not supabase:
+        return ticket_id
     
     try:
         supabase.table("tickets").insert({
@@ -249,7 +258,8 @@ def create_ticket(phone: str, message: str, intent: str, image_url: Optional[str
 
 def get_open_tickets(phone: Optional[str] = None) -> List[Dict[str, Any]]:
     """Get open tickets, optionally filtered by phone."""
-    if not supabase: return []
+    if not supabase:
+        return []
     try:
         query = supabase.table("tickets").select("*").eq("status", "open")
         if phone:
@@ -264,7 +274,8 @@ def get_open_tickets(phone: Optional[str] = None) -> List[Dict[str, Any]]:
 
 def close_ticket(ticket_id: str) -> bool:
     """Close a support ticket."""
-    if not supabase: return False
+    if not supabase:
+        return False
     try:
         response = supabase.table("tickets").update({
             "status": "closed"
