@@ -305,6 +305,6 @@ def mark_message_processed(message_sid: str) -> None:
         return
     try:
         supabase.table("processed_messages").insert({"message_sid": message_sid}).execute()
-    except Exception as e:
+    except Exception:  # noqa: BLE001
         # Ignore unique constraint violations (already inserted)
         pass
