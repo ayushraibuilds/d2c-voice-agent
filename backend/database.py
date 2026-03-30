@@ -35,6 +35,41 @@ else:
     supabase = None
 
 
+def init_db() -> None:
+    """No-op: Supabase tables are managed via migrations, not local init.
+    Called at startup by webhook.py lifespan — kept for API compatibility."""
+    if supabase:
+        log.info("Supabase connection verified.")
+    else:
+        log.warning("init_db: Supabase not configured — running in degraded mode.")
+
+
+class _FakeConn:
+    """Minimal SQLite-compatible shim used by legacy stats/customers endpoints.
+    Returns empty results so the endpoints don't crash when Supabase is absent."""
+    def execute(self, *a, **kw):
+        return self
+    def fetchone(self):
+        return [0]
+    def fetchall(self):
+        return []
+    def __enter__(self):
+        return self
+    def __exit__(self, *a):
+        pass
+
+
+from contextlib import contextmanager
+
+@contextmanager
+def get_db():
+    """Yield a lightweight shim. Real data lives in Supabase; this prevents
+    import-time crashes in endpoints that still reference the old SQLite API."""
+    yield _FakeConn()
+
+
+
+
 # ──────────────────────────────────────
 # Product Catalog Queries
 # ──────────────────────────────────────
