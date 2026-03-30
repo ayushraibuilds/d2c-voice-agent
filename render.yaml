@@ -1,0 +1,47 @@
+services:
+  # ── Backend: FastAPI AI Engine ──────────────────────────────────────────
+  - type: web
+    name: d2c-voice-agent-backend
+    runtime: docker
+    dockerfilePath: ./backend/Dockerfile
+    dockerContext: ./backend
+    envVars:
+      - key: GROQ_API_KEY
+        sync: false          # set manually in Render dashboard
+      - key: TWILIO_ACCOUNT_SID
+        sync: false
+      - key: TWILIO_AUTH_TOKEN
+        sync: false
+      - key: VALIDATE_TWILIO_SIGNATURE
+        value: "true"
+      - key: WEBHOOK_BASE_URL
+        sync: false          # set to backend render URL after first deploy
+      - key: LLM_MODEL
+        value: "llama3-70b-8192"
+      - key: WHISPER_MODEL
+        value: "whisper-large-v3"
+      - key: LLM_TEMPERATURE
+        value: "0"
+      - key: DATABASE_PATH
+        value: "/app/data/d2c_agent.db"
+      - key: LOG_LEVEL
+        value: "INFO"
+      - key: APP_VERSION
+        value: "0.1.0"
+    disk:
+      name: d2c-agent-data
+      mountPath: /app/data
+      sizeGB: 1
+    healthCheckPath: /health
+
+  # ── Frontend: Next.js Landing Page ─────────────────────────────────────
+  - type: web
+    name: d2c-voice-agent-frontend
+    runtime: docker
+    dockerfilePath: ./frontend/Dockerfile
+    dockerContext: ./frontend
+    envVars:
+      - key: NODE_ENV
+        value: "production"
+      - key: NEXT_PUBLIC_API_URL
+        sync: false          # set to backend URL after first deploy
