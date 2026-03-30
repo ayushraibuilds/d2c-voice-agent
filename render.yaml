@@ -34,12 +34,11 @@ services:
   # ── Frontend: Next.js Landing Page ─────────────────────────────────────
   - type: web
     name: d2c-voice-agent-frontend
-    runtime: docker
+    runtime: node
     plan: free
-    dockerfilePath: ./frontend/Dockerfile
-    dockerContext: ./frontend
+    rootDir: ./frontend
+    buildCommand: npm ci && npm run build
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: "production"
-      - key: PORT
-        value: "10000"
